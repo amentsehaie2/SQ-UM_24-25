@@ -182,4 +182,222 @@
 *   Conduct daily standups to sync progress.
 *   Test on both Windows and macOS to ensure compatibility.
 
-This plan ensures all components are built incrementally, security is prioritized, and the team finishes ahead of the deadline.
+## ----------------------------------------------------------------------------------------------------------------------
+
+# Project Overview
+
+This document outlines the tasks and responsibilities for each student in this project, spanning across four weeks.
+
+## Student A: User Authentication & Authorization
+
+**Tasks:**
+
+*   **Implement Hard-Coded Super Admin**
+    *   Create a Python file `auth.py`.
+    *   Define the Super Admin credentials (username: `super_admin`, password: `Admin_123?`).
+
+    ```python
+    # auth.py
+    SUPER_ADMIN = {"username": "super_admin", "password": "Admin_123?"}
+    ```
+
+*   **Design User Roles & Password Hashing**
+    *   Use `bcrypt` for password hashing.
+
+    ```python
+    import bcrypt
+    def hash_password(password):
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode(), salt)
+    ```
+    *   Create a `users` table in SQLite3 with fields: `username`, `hashed_password`, `role`, `first_name`, `last_name`, `registration_date`.
+
+*   **Login/Logout Functionality**
+    *   Validate username/password rules (e.g., length, special characters).
+
+**GitHub:**
+
+*   **Branch:** `feature/auth`
+*   **Files:** `auth.py`, `database.py` (shared with Student B).
+
+## Student B: Database Design & Encryption
+
+**Tasks:**
+
+*   **Create SQLite Tables**
+    *   Design tables for `users`, `travellers`, `scooters`, and `logs`.
+    *   Example for `travellers`:
+
+    ```sql
+    CREATE TABLE travellers (
+        customer_id INTEGER PRIMARY KEY,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        zip_code TEXT ENCRYPTED,  -- Encrypt using AES
+        mobile_phone TEXT ENCRYPTED
+    );
+    ```
+
+*   **Implement AES Encryption**
+    *   Use `cryptography.fernet` for field-level encryption.
+
+    ```python
+    from cryptography.fernet import Fernet
+    key = Fernet.generate_key()
+    cipher = Fernet(key)
+    encrypted_zip = cipher.encrypt(zip_code.encode())
+    ```
+
+**GitHub:**
+
+*   **Branch:** `feature/database`
+*   **Files:** `database.py`, `models.py` (shared with Student A).
+
+## Student C: Input Validation & Base Interface
+
+**Tasks:**
+
+*   **Input Validation Functions**
+    *   Create `validation.py` with regex checks for formats (e.g., zip code: `DDDDXX`).
+
+    ```python
+    import re
+    def validate_zip(zip_code):
+        return re.match(r"^\d{4}[A-Z]{2}$", zip_code)
+    ```
+
+*   **Console Menu Structure**
+    *   Create `interface.py` with role-specific menus.
+
+    ```python
+    def super_admin_menu():
+        print("1. Add System Admin\n2. Generate Restore Code\n3. Exit")
+    ```
+
+**GitHub:**
+
+*   **Branch:** `feature/validation`
+*   **Files:** `validation.py`, `interface.py`.
+
+## Week 2 (2 June – 8 June): Feature Implementation
+
+**Goal:** User management, logging, and traveller/scooter operations.
+
+### Student A: User Management & Backups
+
+**Tasks:**
+
+*   **Super Admin Functions**
+    *   Add/delete System Admins (store in `users` table).
+    *   Generate one-time restore codes (use UUID).
+
+*   **Backup Logic**
+    *   Use `shutil` to zip the encrypted database.
+
+    ```python
+    import shutil
+    shutil.make_archive("backup_20250602", "zip", "database/")
+    ```
+
+**GitHub:**
+
+*   **Branch:** `feature/user-management`
+*   **Files:** Update `auth.py` and `database.py`.
+
+### Student B: Logging & Security
+
+**Tasks:**
+
+*   **Activity Logging**
+    *   Create `logger.py` to log actions (e.g., logins, user creation).
+    *   Flag suspicious activities (e.g., 3+ failed logins).
+
+*   **Encrypt Log Files**
+    *   Use AES to encrypt logs. Ensure they’re unreadable externally.
+
+**GitHub:**
+
+*   **Branch:** `feature/logging`
+*   **Files:** `logger.py`, update `database.py`.
+
+### Student C: Traveller/Scooter Management
+
+**Tasks:**
+
+*   **CRUD Operations**
+    *   System Admin: Add/delete travellers/scooters.
+    *   Service Engineer: Update scooter attributes (e.g., State of Charge).
+
+*   **Search Functionality**
+    *   Allow partial search keys using SQL `LIKE`.
+
+    ```python
+    cursor.execute("SELECT * FROM travellers WHERE first_name LIKE ?", (f"%{key}%",))
+    ```
+
+**GitHub:**
+
+*   **Branch:** `feature/operations`
+*   **Files:** `operations.py`.
+
+## Week 3 (9 June – 15 June): Integration & Testing
+
+**Goal:** Merge components, test security, and fix bugs.
+
+### All Students
+
+**Tasks:**
+
+*   **Merge GitHub Branches**
+    *   Resolve conflicts in `main` branch.
+
+*   **Test edge cases:**
+    *   SQL injection in search fields (e.g., `' OR 1=1;--`).
+    *   Role escalation (e.g., Service Engineer deleting scooters).
+
+*   **Verify Encryption**
+    *   Ensure encrypted data is unreadable via tools like DB Browser for SQLite.
+
+**GitHub:**
+
+*   Create `test_cases.md` for manual testing.
+*   Use GitHub Issues to track bugs.
+
+## Week 4 (16 June): Final Review & Presentation Prep
+
+**Goal:** Rehearse presentation and final checks.
+
+### All Students
+
+**Tasks:**
+
+*   **Presentation Script**
+    *   Demo flow:
+
+        1.  Login as Super Admin → Create System Admin → Logout.
+        2.  Login as System Admin → Add Traveller → Backup DB.
+        3.  Login as Service Engineer → Update Scooter → Check logs.
+
+*   **Verify Grading Criteria**
+    *   C1 (Authentication): Ensure all roles have correct access.
+    *   C2 (Input Validation): Test invalid formats (e.g., wrong zip code).
+    *   C3 (SQL Injection): Confirm parameterized queries are used everywhere.
+
+**GitHub:**
+
+*   Final commit: `main` branch.
+*   Create submission zip: `studentnumber1_studentnumber2_studentnumber3.zip`.
+
+## Key Success Tips
+
+*   **Daily Standups:** Sync progress daily (e.g., 15-minute calls).
+
+## GitHub Best Practices
+
+*   Use descriptive commit messages (e.g., "Fix: Password hashing bug").
+*   Review each other’s pull requests.
+
+## Security Focus
+
+*   Never store plaintext passwords.
+*   Encrypt all sensitive fields (e.g., phone numbers, logs).
