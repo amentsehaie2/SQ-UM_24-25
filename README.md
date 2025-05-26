@@ -401,3 +401,31 @@ This document outlines the tasks and responsibilities for each student in this p
 
 *   Never store plaintext passwords.
 *   Encrypt all sensitive fields (e.g., phone numbers, logs).
+
+## Template
+*    Structure
+
+    ```python
+    src/  
+├── um_members.py          # Main entry point to run the system  
+├── auth.py                # User authentication and authorization logic  
+├── database.py            # Database connection and table creation  
+├── models.py              # Data schemas (e.g., User, Traveller, Scooter)  
+├── validation.py          # Input validation functions  
+├── interface.py           # Console-based user interface menus  
+├── operations.py          # CRUD operations for travellers/scooters  
+├── logger.py              # Activity logging and encryption  
+├── encryption.py          # Symmetric encryption (AES) for sensitive data  
+└── config.py              # Constants (e.g., encryption key, predefined cities)  
+
+data/                      # Folder for SQLite database and backups  
+├── urban_mobility.db      # Encrypted SQLite3 database  
+└── backups/               # Backup zip files  
+
+docs/  
+└── test_cases.md          # Manual test cases for grading criteria  
+
+.gitignore                 # Ignore temporary files, keys, etc.  
+requirements.txt           # Dependencies (e.g., bcrypt, cryptography)  
+README.md                  # Setup instructions for teachers  
+    ```
