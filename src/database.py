@@ -81,56 +81,6 @@ def initialize_db():
             last_service_date DATETIME
         )  
     """)  
-
-    # Create system logs
-    cursor.execute("""  
-        CREATE TABLE IF NOT EXISTS logs (  
-            id INTEGER PRIMARY KEY AUTOINCREMENT,  
-            date DATETIME,
-            username TEXT,                     
-            description_of_activity TEXT,    
-            additional_info TEXT,            
-            suspicious_activity BOOLEAN,
-            is_read BOOLEAN DEFAULT 0  -- Added is_read column
-        )  
-    """) 
-    conn.commit()  
-    conn.close()
-
-def mark_logs_as_read(log_ids):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(f"""
-            UPDATE logs
-            SET is_read = 1
-            WHERE id IN ({','.join(['?']*len(log_ids))})
-        """, log_ids)
-        conn.commit()
-    except Exception as e:
-        print(f"Error marking logs as read: {e}")
-    finally:
-        conn.close()
-
-def get_unread_suspicious_logs_count():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM logs
-            WHERE suspicious_activity = 1 AND is_read = 0
-        """)
-        count = cursor.fetchone()[0]
-        return count
-    except Exception as e:
-        print(f"Error getting unread suspicious logs count: {e}")
-        return 0
-    finally:
-        conn.close()
-
-
-
 # --- Example functions demonstrating encryption/decryption ---
 
 def add_user(username, password, role):
@@ -177,21 +127,6 @@ def get_user_by_username(username):
         return user_data
     return None
 
-def add_log_entry(username, description, additional_info="", suspicious=False):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    log_date = datetime.now()
-    encrypted_username = encrypt_data(username)
-    encrypted_description = encrypt_data(description)
-    encrypted_additional_info = encrypt_data(additional_info)
-    
-    cursor.execute("""
-        INSERT INTO logs (date, username, description_of_activity, additional_info, suspicious_activity, is_read)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (log_date, encrypted_username, encrypted_description, encrypted_additional_info, suspicious, 0)) # is_read defaults to 0
-    conn.commit()
-    conn.close()
-
 def add_traveller(first_name, last_name, birth_date, gender, street_name, house_number, zip_code, city, email, phone_number, mobile_phone, license_number):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -224,25 +159,6 @@ def add_traveller(first_name, last_name, birth_date, gender, street_name, house_
         print(f"Error: Traveller with email '{email}' might already exist or other integrity constraint failed.")
     finally:
         conn.close()
-
-def get_all_logs(): 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, date, username, description_of_activity, additional_info, suspicious_activity FROM logs ORDER BY date DESC")
-    rows = cursor.fetchall()
-    conn.close()
-    
-    decrypted_logs = []
-    for row in rows:
-        decrypted_logs.append({
-            "id": row[0],
-            "date": row[1],
-            "username": decrypt_data(row[2]),
-            "description_of_activity": decrypt_data(row[3]),
-            "additional_info": decrypt_data(row[4]),
-            "suspicious_activity": bool(row[5])
-        })
-    return decrypted_logs
     
 if __name__ == '__main__':
     os.makedirs(_OUTPUT_DIR, exist_ok=True) 
