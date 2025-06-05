@@ -118,11 +118,6 @@ def get_user_by_username(username):
             "registration_date": row[4] 
         }
 
-        # Check for unread suspicious logs if the user is an admin
-        if user_data["role"] in ("System Administrator", "Super Administrator"):
-            unread_count = get_unread_suspicious_logs_count()
-            if unread_count > 0:
-                print(f"\nALERT: There are {unread_count} unread suspicious logs. Please check the logs.\n")
 
         return user_data
     return None
