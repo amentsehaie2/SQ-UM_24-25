@@ -38,11 +38,11 @@ def user_management_menu():
         print("2. Add Service Engineer")
         print("3. Update Service Engineer profile")
         print("4. Delete Service Engineer")
-        print("5. Reset Service Engineer password")
+        print("5. Update Service Engineer password")
         print("6. Add System Administrator")
         print("7. Update System Administrator profile")
         print("8. Delete System Administrator")
-        print("9. Reset System Administrator password")
+        print("9. Update System Administrator password")
         print("10. Back")
         choice = input("Select an option (1-10): ")
 
@@ -55,7 +55,7 @@ def user_management_menu():
         elif choice == "4":
             delete_service_engineer()
         elif choice == "5":
-            reset_service_engineer_password()
+            update_service_engineer_password()
         elif choice == "6":
             add_system_admin()
         elif choice == "7":
@@ -63,7 +63,7 @@ def user_management_menu():
         elif choice == "8":
             delete_system_admin()
         elif choice == "9":
-            reset_system_admin_password()
+            update_system_admin_password()
         elif choice == "10":
             break
         else:
@@ -233,3 +233,9 @@ def generate_restore_code():
 
 def revoke_restore_code():
     print("Revoking restore-code for System Administrator...")
+
+def update_service_engineer_password():
+    print("Updating Service Engineer password...")
+
+def update_system_admin_password():
+    print("Updating System Administrator password...")
