@@ -1,4 +1,9 @@
 # Console menus for each user role  
+from operations import (
+    add_traveller, update_traveller, delete_traveller, search_travellers,
+    add_scooter, update_scooter, delete_scooter, search_scooters
+)
+
 def main_menu(user):  
     if user["role"] == "super_admin":  
         super_admin_menu()  
@@ -70,6 +75,8 @@ def user_management_menu():
             print("Invalid option. Please try again.")
 
 def traveller_management_menu():
+    import sqlite3
+    conn = sqlite3.connect("main.db")
     while True:
         print("\n--- Traveller Management ---")
         print("1. Add Traveller")
@@ -80,19 +87,36 @@ def traveller_management_menu():
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
-            add_traveller()
+            # Collect input and call add_traveller
+            first = input("First name: ")
+            last = input("Last name: ")
+            zipc = input("Zip code: ")
+            phone = input("Mobile phone: ")
+            add_traveller(conn, first, last, zipc, phone)
         elif choice == "2":
-            update_traveller()
+            tid = input("Traveller ID to update: ")
+            first = input("First name: ")
+            last = input("Last name: ")
+            zipc = input("Zip code: ")
+            phone = input("Mobile phone: ")
+            update_traveller(conn, tid, first, last, zipc, phone)
         elif choice == "3":
-            delete_traveller()
+            tid = input("Traveller ID to delete: ")
+            delete_traveller(conn, tid)
         elif choice == "4":
-            search_traveller()
+            key = input("Search key (first or last name): ")
+            results = search_travellers(conn, key)
+            for row in results:
+                print(row)
         elif choice == "5":
             break
         else:
             print("Invalid option. Please try again.")
+    conn.close()
 
 def scooter_management_menu():
+    import sqlite3
+    conn = sqlite3.connect("main.db")
     while True:
         print("\n--- Scooter Management ---")
         print("1. Add Scooter")
@@ -103,17 +127,28 @@ def scooter_management_menu():
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
-            add_scooter()
+            sid = input("Scooter ID: ")
+            model = input("Model: ")
+            status = input("Status: ")
+            add_scooter(conn, sid, model, status)
         elif choice == "2":
-            update_scooter()
+            sid = input("Scooter ID to update: ")
+            model = input("Model: ")
+            status = input("Status: ")
+            update_scooter(conn, sid, model, status)
         elif choice == "3":
-            delete_scooter()
+            sid = input("Scooter ID to delete: ")
+            delete_scooter(conn, sid)
         elif choice == "4":
-            search_scooter()
+            key = input("Search key (ID or model): ")
+            results = search_scooters(conn, key)
+            for row in results:
+                print(row)
         elif choice == "5":
             break
         else:
             print("Invalid option. Please try again.")
+    conn.close()
 
 def system_admin_menu():
     while True:
@@ -167,7 +202,7 @@ def service_engineer_menu():
         else:
             print("Invalid option. Please try again.")
 
-# Placeholder functions for menu actions
+# Placeholder functions for menu actions not related to CRUD
 def list_users_and_roles():
     print("Listing users and roles...")
 
@@ -182,30 +217,6 @@ def delete_service_engineer():
 
 def reset_service_engineer_password():
     print("Resetting Service Engineer password...")
-
-def add_traveller():
-    print("Adding a new Traveller...")
-
-def update_traveller():
-    print("Updating Traveller information...")
-
-def delete_traveller():
-    print("Deleting Traveller...")
-
-def search_traveller():
-    print("Searching/Retrieving Traveller information...")
-
-def add_scooter():
-    print("Adding a new Scooter...")
-
-def update_scooter():
-    print("Updating Scooter information...")
-
-def delete_scooter():
-    print("Deleting Scooter...")
-
-def search_scooter():
-    print("Searching/Retrieving Scooter information...")
 
 def view_system_logs():
     print("Viewing system logs...")
