@@ -1,8 +1,18 @@
 # Console menus for each user role  
+
 from operations import (
     add_traveller, update_traveller, delete_traveller, search_travellers,
-    add_scooter, update_scooter, delete_scooter, search_scooters
+    add_scooter, update_scooter, delete_scooter, search_scooters,
+    list_users_and_roles, add_service_engineer, update_service_engineer_profile,
+    delete_service_engineer, reset_service_engineer_password, view_system_logs,
+    add_system_admin, update_system_admin_profile, delete_system_admin,
+    reset_system_admin_password, make_backup, restore_backup,
+    generate_restore_code, revoke_restore_code, update_service_engineer_password,
+    update_system_admin_password
 )
+import sqlite3
+import getpass
+import bcrypt
 
 def main_menu(user):  
     if user["role"] == "super_admin":  
@@ -76,7 +86,7 @@ def user_management_menu():
 
 def traveller_management_menu():
     import sqlite3
-    conn = sqlite3.connect("main.db")
+    conn = sqlite3.connect("../urban_mobility.db")
     while True:
         print("\n--- Traveller Management ---")
         print("1. Add Traveller")
@@ -116,7 +126,7 @@ def traveller_management_menu():
 
 def scooter_management_menu():
     import sqlite3
-    conn = sqlite3.connect("main.db")
+    conn = sqlite3.connect("../urban_mobility.db")
     while True:
         print("\n--- Scooter Management ---")
         print("1. Add Scooter")
@@ -202,51 +212,31 @@ def service_engineer_menu():
         else:
             print("Invalid option. Please try again.")
 
-# Placeholder functions for menu actions not related to CRUD
-def list_users_and_roles():
-    print("Listing users and roles...")
-
-def add_service_engineer():
-    print("Adding a new Service Engineer...")
-
-def update_service_engineer_profile():
-    print("Updating Service Engineer profile...")
-
-def delete_service_engineer():
-    print("Deleting Service Engineer account...")
-
-def reset_service_engineer_password():
-    print("Resetting Service Engineer password...")
-
-def view_system_logs():
-    print("Viewing system logs...")
-
-def add_system_admin():
-    print("Adding a new System Administrator...")
-
-def update_system_admin_profile():
-    print("Updating System Administrator profile...")
-
-def delete_system_admin():
-    print("Deleting System Administrator account...")
-
 def reset_system_admin_password():
-    print("Resetting System Administrator password...")
+    conn = sqlite3.connect("../output/urban_mobility.db")
+    cursor = conn.cursor()
 
-def make_backup():
-    print("Making a system backup...")
+    username = input("Enter the System Administrator's username: ")
+    cursor.execute("SELECT username FROM users WHERE username=? AND role='system_admin'", (username,))
+    user = cursor.fetchone()
+    if not user:
+        print("System Administrator not found.")
+        conn.close()
+        return False
 
-def restore_backup():
-    print("Restoring a system backup...")
+    while True:
+        new_password = getpass.getpass("Enter new password: ")
+        confirm_password = getpass.getpass("Confirm new password: ")
+        if new_password != confirm_password:
+            print("Passwords do not match. Try again.")
+        elif len(new_password) < 8:
+            print("Password must be at least 8 characters long.")
+        else:
+            break
 
-def generate_restore_code():
-    print("Generating restore-code for System Administrator...")
-
-def revoke_restore_code():
-    print("Revoking restore-code for System Administrator...")
-
-def update_service_engineer_password():
-    print("Updating Service Engineer password...")
-
-def update_system_admin_password():
-    print("Updating System Administrator password...")
+    hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt())
+    cursor.execute("UPDATE users SET password=? WHERE username=? AND role='system_admin'", (hashed, username))
+    conn.commit()
+    conn.close()
+    print("System Administrator password has been reset.")
+    return True
