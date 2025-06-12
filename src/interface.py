@@ -10,9 +10,6 @@ from operations import (
     generate_restore_code, revoke_restore_code, update_service_engineer_password,
     update_system_admin_password
 )
-import sqlite3
-import getpass
-import bcrypt
 
 def main_menu(user):  
     if user["role"] == "super_admin":  
@@ -85,8 +82,6 @@ def user_management_menu():
             print("Invalid option. Please try again.")
 
 def traveller_management_menu():
-    import sqlite3
-    conn = sqlite3.connect("../urban_mobility.db")
     while True:
         print("\n--- Traveller Management ---")
         print("1. Add Traveller")
@@ -98,35 +93,52 @@ def traveller_management_menu():
 
         if choice == "1":
             # Collect input and call add_traveller
-            first = input("First name: ")
-            last = input("Last name: ")
-            zipc = input("Zip code: ")
-            phone = input("Mobile phone: ")
-            add_traveller(conn, first, last, zipc, phone)
+            first_name = input("First name: ")
+            last_name = input("Last name: ")
+            birth_date = input("Birth date (YYYY-MM-DD): ")
+            gender = input("Gender: ")
+            street_name = input("Street name: ")
+            house_number = input("House number: ")
+            zip_code = input("Zip code: ")
+            city = input("City: ")
+            email = input("Email: ")
+            phone_number = input("Phone number: ")
+            mobile_phone = input("Mobile phone: ")
+            license_number = input("License number: ")
+            add_traveller(
+                first_name, last_name, birth_date, gender, street_name, house_number,
+                zip_code, city, email, phone_number, mobile_phone, license_number
+            )
         elif choice == "2":
-            tid = input("Traveller ID to update: ")
-            first = input("First name: ")
-            last = input("Last name: ")
-            zipc = input("Zip code: ")
-            phone = input("Mobile phone: ")
-            update_traveller(conn, tid, first, last, zipc, phone)
+            customer_id = input("Traveller ID to update: ")
+            print("Leave fields blank to skip updating them.")
+            fields = {}
+            for field in [
+                "first_name", "last_name", "birth_date", "gender", "street_name",
+                "house_number", "zip_code", "city", "email", "phone_number",
+                "mobile_phone", "license_number"
+            ]:
+                value = input(f"{field.replace('_', ' ').capitalize()}: ")
+                if value.strip():
+                    fields[field] = value
+            if fields:
+                update_traveller(customer_id, **fields)
+            else:
+                print("No fields to update.")
         elif choice == "3":
-            tid = input("Traveller ID to delete: ")
-            delete_traveller(conn, tid)
+            customer_id = input("Traveller ID to delete: ")
+            delete_traveller(customer_id)
         elif choice == "4":
             key = input("Search key (first or last name): ")
-            results = search_travellers(conn, key)
+            results = search_travellers(key)
             for row in results:
                 print(row)
         elif choice == "5":
             break
         else:
             print("Invalid option. Please try again.")
-    conn.close()
 
 def scooter_management_menu():
-    import sqlite3
-    conn = sqlite3.connect("../urban_mobility.db")
     while True:
         print("\n--- Scooter Management ---")
         print("1. Add Scooter")
@@ -137,28 +149,50 @@ def scooter_management_menu():
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
-            sid = input("Scooter ID: ")
+            brand = input("Brand: ")
             model = input("Model: ")
-            status = input("Status: ")
-            add_scooter(conn, sid, model, status)
+            serial_number = input("Serial number: ")
+            top_speed = input("Top speed: ")
+            battery_capacity = input("Battery capacity: ")
+            state_of_charge = input("State of charge: ")
+            target_range = input("Target range: ")
+            location = input("Location: ")
+            out_of_service = input("Out of service (True/False): ")
+            mileage = input("Mileage: ")
+            last_service_date = input("Last service date (YYYY-MM-DD): ")
+            add_scooter(
+                brand, model, serial_number, top_speed, battery_capacity,
+                state_of_charge, target_range, location, out_of_service,
+                mileage, last_service_date
+            )
         elif choice == "2":
-            sid = input("Scooter ID to update: ")
-            model = input("Model: ")
-            status = input("Status: ")
-            update_scooter(conn, sid, model, status)
+            scooter_id = input("Scooter ID to update: ")
+            print("Leave fields blank to skip updating them.")
+            fields = {}
+            for field in [
+                "brand", "model", "serial_number", "top_speed", "battery_capacity",
+                "state_of_charge", "target_range", "location", "out_of_service",
+                "mileage", "last_service_date"
+            ]:
+                value = input(f"{field.replace('_', ' ').capitalize()}: ")
+                if value.strip():
+                    fields[field] = value
+            if fields:
+                update_scooter(scooter_id, **fields)
+            else:
+                print("No fields to update.")
         elif choice == "3":
-            sid = input("Scooter ID to delete: ")
-            delete_scooter(conn, sid)
+            scooter_id = input("Scooter ID to delete: ")
+            delete_scooter(scooter_id)
         elif choice == "4":
-            key = input("Search key (ID or model): ")
-            results = search_scooters(conn, key)
+            key = input("Search key (brand, model, or serial number): ")
+            results = search_scooters(key)
             for row in results:
                 print(row)
         elif choice == "5":
             break
         else:
             print("Invalid option. Please try again.")
-    conn.close()
 
 def system_admin_menu():
     while True:
@@ -211,32 +245,3 @@ def service_engineer_menu():
             break
         else:
             print("Invalid option. Please try again.")
-
-def reset_system_admin_password():
-    conn = sqlite3.connect("../output/urban_mobility.db")
-    cursor = conn.cursor()
-
-    username = input("Enter the System Administrator's username: ")
-    cursor.execute("SELECT username FROM users WHERE username=? AND role='system_admin'", (username,))
-    user = cursor.fetchone()
-    if not user:
-        print("System Administrator not found.")
-        conn.close()
-        return False
-
-    while True:
-        new_password = getpass.getpass("Enter new password: ")
-        confirm_password = getpass.getpass("Confirm new password: ")
-        if new_password != confirm_password:
-            print("Passwords do not match. Try again.")
-        elif len(new_password) < 8:
-            print("Password must be at least 8 characters long.")
-        else:
-            break
-
-    hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt())
-    cursor.execute("UPDATE users SET password=? WHERE username=? AND role='system_admin'", (hashed, username))
-    conn.commit()
-    conn.close()
-    print("System Administrator password has been reset.")
-    return True
