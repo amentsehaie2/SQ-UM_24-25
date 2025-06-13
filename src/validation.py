@@ -1,4 +1,3 @@
-# Validates user inputs (e.g., zip code, phone number)  
 import re  
 
 def validate_fname(first_name) -> bool:  
@@ -22,18 +21,13 @@ def validate_email(email) -> bool:
 def validate_username(username) -> bool:
     return bool(re.fullmatch(r'^[a-zA-Z0-9_]{3,20}$', username))
 
-def validate_address(address) -> bool:
-    return bool(re.fullmatch(r'^[a-zA-Z0-9\s,.-]{5,100}$', address))
+def validate_street_name(street_name) -> bool:
+    if not isinstance(street_name, str) or not street_name.strip():
+        return False
+    return bool(re.fullmatch(r'^[A-Za-z\s]{1,50}$', street_name.strip()))
 
 def validate_license_number(license_number) -> bool:
     return bool(re.fullmatch(r'^([A-Z]{2}\d{7}|[A-Z]{1}\d{8})$', license_number))
-
-def validate_city(city_name) -> bool:
-    cities = {
-        "Rotterdam", "Amsterdam", "Den Bosch", "Groningen", "Den Haag",
-        "Maastricht", "Lelystad", "Utrecht", "Haarlem", "Breda"
-    }
-    return city_name in cities
 
 def validate_city(city_name) -> bool:
     """

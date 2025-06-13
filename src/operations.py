@@ -3,71 +3,67 @@ import os
 import shutil
 import secrets
 from datetime import datetime
-from validation import validate_zip, validate_phone
+from validation import (
+    validate_zip, validate_phone, validate_fname, validate_lname, validate_house_number,
+    validate_email, validate_username, validate_street_name, validate_license_number, validate_city
+)
 from encryption import encrypt_data, decrypt_data
 import bcrypt
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "urban_mobility.db")
-BACKUP_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backup")
-RESTORE_CODE_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "restore_code.txt")
+# Use the same DB path logic as database.py
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
+DB_PATH = os.path.join(OUTPUT_DIR, "urban_mobility.db")
+BACKUP_DIR = os.path.join(PROJECT_ROOT, "backup")
+RESTORE_CODE_FILE = os.path.join(OUTPUT_DIR, "restore_code.txt")
+
+def get_db_connection():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    return sqlite3.connect(DB_PATH)
 
 # === Traveller Operations ===
-def add_traveller(conn, first, last, zipc, phone):
-    if not validate_zip(zipc):
-        print("Invalid zip code format.")
+def add_traveller(first_name, last_name, birth_date, gender, street_name, house_number, zip_code, city, email, phone_number, mobile_phone, license_number):
+    if not (validate_fname(first_name) and validate_lname(last_name) and validate_house_number(house_number)
+            and validate_zip(zip_code) and validate_email(email) and validate_phone(phone_number)
+            and validate_phone(mobile_phone) and validate_license_number(license_number) and validate_city(city)):
+        print("Validation failed for one or more fields.")
         return False
-    if not validate_phone(phone):
-        print("Invalid phone number format.")
-        return False
-    encrypted_first = encrypt_data(first)
-    encrypted_last = encrypt_data(last)
-    encrypted_zip = encrypt_data(zipc)
-    encrypted_phone = encrypt_data(phone)
+    conn = get_db_connection()
+    cursor = conn.cursor()
     registration_date = datetime.now()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO travellers (first_name, last_name, zip_code, mobile_phone, registration_date)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (encrypted_first, encrypted_last, encrypted_zip, encrypted_phone, registration_date)
-    )
-    conn.commit()
-    print("Traveller added.")
-    return True
-
-def update_traveller(conn, tid, first, last, zipc, phone):
-    if not validate_zip(zipc):
-        print("Invalid zip code format.")
+    encrypted_first_name = encrypt_data(first_name)
+    encrypted_last_name = encrypt_data(last_name)
+    encrypted_birth_date = encrypt_data(birth_date)
+    encrypted_gender = encrypt_data(gender)
+    encrypted_street_name = encrypt_data(street_name)
+    encrypted_house_number = encrypt_data(house_number)
+    encrypted_zip_code = encrypt_data(zip_code)
+    encrypted_city = encrypt_data(city)
+    encrypted_email = encrypt_data(email)
+    encrypted_phone_number = encrypt_data(phone_number)
+    encrypted_mobile_phone = encrypt_data(mobile_phone)
+    encrypted_license_number = encrypt_data(license_number)
+    try:
+        cursor.execute("""
+            INSERT INTO travellers (first_name, last_name, birth_date, gender, street_name, 
+                                    house_number, zip_code, city, email, phone_number, 
+                                    mobile_phone, license_number, registration_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (encrypted_first_name, encrypted_last_name, encrypted_birth_date, encrypted_gender,
+              encrypted_street_name, encrypted_house_number, encrypted_zip_code, encrypted_city,
+              encrypted_email, encrypted_phone_number, encrypted_mobile_phone,
+              encrypted_license_number, registration_date))
+        conn.commit()
+        print("Traveller added.")
+        return True
+    except sqlite3.IntegrityError:
+        print(f"Error: Traveller with email '{email}' might already exist or other integrity constraint failed.")
         return False
-    if not validate_phone(phone):
-        print("Invalid phone number format.")
-        return False
-    encrypted_first = encrypt_data(first)
-    encrypted_last = encrypt_data(last)
-    encrypted_zip = encrypt_data(zipc)
-    encrypted_phone = encrypt_data(phone)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE travellers 
-        SET first_name=?, last_name=?, zip_code=?, mobile_phone=? 
-        WHERE customer_id=?
-        """,
-        (encrypted_first, encrypted_last, encrypted_zip, encrypted_phone, tid)
-    )
-    conn.commit()
-    print("Traveller updated.")
-    return True
+    finally:
+        conn.close()
 
-def delete_traveller(conn, tid):
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM travellers WHERE customer_id=?", (tid,))
-    conn.commit()
-    print("Traveller deleted.")
-    return True
-
-def search_travellers(conn, key):
+def search_travellers(key):
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT customer_id, first_name, last_name, zip_code, mobile_phone FROM travellers")
     results = []
@@ -78,60 +74,145 @@ def search_travellers(conn, key):
             decrypted_zip = decrypt_data(row[3])
             decrypted_phone = decrypt_data(row[4])
             results.append((row[0], decrypted_first, decrypted_last, decrypted_zip, decrypted_phone))
+    conn.close()
     return results
 
-# === Scooter Operations ===
-def add_scooter(conn, serial_number, model, out_of_service):
-    encrypted_model = encrypt_data(model)
-    encrypted_serial = encrypt_data(serial_number)
+def update_traveller(customer_id, **kwargs):
+    # kwargs: any updatable field, must be validated and encrypted
+    allowed_fields = {
+        "first_name": validate_fname,
+        "last_name": validate_lname,
+        "birth_date": lambda x: True,
+        "gender": lambda x: True,
+        "street_name": validate_street_name,
+        "house_number": validate_house_number,
+        "zip_code": validate_zip,
+        "city": validate_city,
+        "email": validate_email,
+        "phone_number": validate_phone,
+        "mobile_phone": validate_phone,
+        "license_number": validate_license_number
+    }
+    updates = []
+    values = []
+    for field, value in kwargs.items():
+        if field in allowed_fields and allowed_fields[field](value):
+            updates.append(f"{field}=?")
+            values.append(encrypt_data(value))
+        else:
+            print(f"Invalid value for {field}.")
+            return False
+    if not updates:
+        print("No valid fields to update.")
+        return False
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO scooters (serial_number, model, out_of_service) 
-        VALUES (?, ?, ?)
-        """,
-        (encrypted_serial, encrypted_model, out_of_service)
-    )
+    sql = f"UPDATE travellers SET {', '.join(updates)} WHERE customer_id=?"
+    values.append(customer_id)
+    cursor.execute(sql, tuple(values))
     conn.commit()
-    print("Scooter added.")
+    conn.close()
+    print("Traveller updated.")
     return True
 
-def update_scooter(conn, serial_number, model, out_of_service):
+def delete_traveller(customer_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM travellers WHERE customer_id=?", (customer_id,))
+    conn.commit()
+    conn.close()
+    print("Traveller deleted.")
+    return True
+
+# === Scooter Operations ===
+def add_scooter(brand, model, serial_number, top_speed, battery_capacity, state_of_charge, target_range, location, out_of_service, mileage, last_service_date):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    encrypted_brand = encrypt_data(brand)
     encrypted_model = encrypt_data(model)
     encrypted_serial = encrypt_data(serial_number)
+    encrypted_location = encrypt_data(location)
+    try:
+        cursor.execute("""
+            INSERT INTO scooters (brand, model, serial_number, top_speed, battery_capacity, state_of_charge, target_range, location, out_of_service, mileage, last_service_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (encrypted_brand, encrypted_model, encrypted_serial, top_speed, battery_capacity, state_of_charge, target_range, encrypted_location, out_of_service, mileage, last_service_date))
+        conn.commit()
+        print("Scooter added.")
+        return True
+    except sqlite3.IntegrityError:
+        print(f"Error: Scooter with serial number '{serial_number}' might already exist.")
+        return False
+    finally:
+        conn.close()
+
+def search_scooters(key):
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE scooters SET model=?, out_of_service=? WHERE serial_number=?
-        """,
-        (encrypted_model, out_of_service, encrypted_serial)
-    )
+    cursor.execute("SELECT scooter_id, brand, model, serial_number, location FROM scooters")
+    results = []
+    for row in cursor.fetchall():
+        decrypted_brand = decrypt_data(row[1])
+        decrypted_model = decrypt_data(row[2])
+        decrypted_serial = decrypt_data(row[3])
+        decrypted_location = decrypt_data(row[4])
+        if (key.lower() in decrypted_brand.lower() or key.lower() in decrypted_model.lower() or key.lower() in decrypted_serial.lower()):
+            results.append((row[0], decrypted_brand, decrypted_model, decrypted_serial, decrypted_location))
+    conn.close()
+    return results
+
+def update_scooter(scooter_id, **kwargs):
+    allowed_fields = {
+        "brand": lambda x: True,
+        "model": lambda x: True,
+        "serial_number": lambda x: True,
+        "top_speed": lambda x: True,
+        "battery_capacity": lambda x: True,
+        "state_of_charge": lambda x: True,
+        "target_range": lambda x: True,
+        "location": lambda x: True,
+        "out_of_service": lambda x: True,
+        "mileage": lambda x: True,
+        "last_service_date": lambda x: True
+    }
+    updates = []
+    values = []
+    for field, value in kwargs.items():
+        if field in allowed_fields and allowed_fields[field](value):
+            if field in {"brand", "model", "serial_number", "location"}:
+                updates.append(f"{field}=?")
+                values.append(encrypt_data(value))
+            else:
+                updates.append(f"{field}=?")
+                values.append(value)
+        else:
+            print(f"Invalid value for {field}.")
+            return False
+    if not updates:
+        print("No valid fields to update.")
+        return False
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    sql = f"UPDATE scooters SET {', '.join(updates)} WHERE scooter_id=?"
+    values.append(scooter_id)
+    cursor.execute(sql, tuple(values))
     conn.commit()
+    conn.close()
     print("Scooter updated.")
     return True
 
-def delete_scooter(conn, serial_number):
-    encrypted_serial = encrypt_data(serial_number)
+def delete_scooter(scooter_id):
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM scooters WHERE serial_number=?", (encrypted_serial,))
+    cursor.execute("DELETE FROM scooters WHERE scooter_id=?", (scooter_id,))
     conn.commit()
+    conn.close()
     print("Scooter deleted.")
     return True
 
-def search_scooters(conn, key):
-    cursor = conn.cursor()
-    cursor.execute("SELECT serial_number, model, out_of_service FROM scooters")
-    results = []
-    for row in cursor.fetchall():
-        decrypted_serial = decrypt_data(row[0])
-        decrypted_model = decrypt_data(row[1])
-        if key.lower() in decrypted_serial.lower() or key.lower() in decrypted_model.lower():
-            results.append((decrypted_serial, decrypted_model, row[2]))
-    return results
-
 # === User/System Admin Functions ===
 def list_users_and_roles():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT username, role FROM users")
     users = cursor.fetchall()
@@ -148,7 +229,7 @@ def _set_user_password(conn, username, password):
     conn.commit()
 
 def add_service_engineer():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     username = input("Username: ")
     password = input("Password: ")
     encrypted_username = encrypt_data(username)
@@ -162,7 +243,7 @@ def add_service_engineer():
     conn.close()
 
 def update_service_engineer_profile():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     old_username = input("Current Username: ")
     new_username = input("New Username: ")
     cursor = conn.cursor()
@@ -172,7 +253,7 @@ def update_service_engineer_profile():
     print("Profile updated.")
 
 def delete_service_engineer():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     username = input("Username to delete: ")
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE username=? AND role=?", (encrypt_data(username), encrypt_data("engineer")))
@@ -181,7 +262,7 @@ def delete_service_engineer():
     print("Engineer deleted.")
 
 def reset_service_engineer_password():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     username = input("Username: ")
     new_password = secrets.token_urlsafe(8)
     _set_user_password(conn, username, new_password)
@@ -189,7 +270,7 @@ def reset_service_engineer_password():
     print(f"Temporary password: {new_password}")
 
 def update_service_engineer_password():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     username = input("Username: ")
     password = input("New Password: ")
     _set_user_password(conn, username, password)
@@ -197,7 +278,7 @@ def update_service_engineer_password():
     print("Password updated.")
 
 def add_system_admin():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     username = input("Username: ")
     password = input("Password: ")
     encrypted_username = encrypt_data(username)
@@ -211,7 +292,7 @@ def add_system_admin():
     print("System Admin added.")
 
 def update_system_admin_profile():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     old_username = input("Current Username: ")
     new_username = input("New Username: ")
     cursor = conn.cursor()
@@ -221,7 +302,7 @@ def update_system_admin_profile():
     print("Profile updated.")
 
 def delete_system_admin():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     username = input("Username to delete: ")
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE username=? AND role=?", (encrypt_data(username), encrypt_data("admin")))
@@ -230,7 +311,7 @@ def delete_system_admin():
     print("Admin deleted.")
 
 def reset_system_admin_password():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     username = input("Username: ")
     new_password = secrets.token_urlsafe(8)
     _set_user_password(conn, username, new_password)
@@ -238,7 +319,7 @@ def reset_system_admin_password():
     print(f"Temporary password: {new_password}")
 
 def update_system_admin_password():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     username = input("Username: ")
     password = input("New Password: ")
     _set_user_password(conn, username, password)
@@ -246,7 +327,7 @@ def update_system_admin_password():
     print("Password updated.")
 
 def view_system_logs():
-    log_path = os.path.join(os.path.dirname(DB_PATH), "system.log")
+    log_path = os.path.join(OUTPUT_DIR, "system.log")
     if os.path.exists(log_path):
         with open(log_path) as log:
             print(log.read())
