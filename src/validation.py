@@ -2,10 +2,32 @@ import re
 from datetime import datetime
 
 def validate_fname(first_name) -> bool:  
-    return bool(re.fullmatch(r'^[A-Z][a-z]{1,19}$', first_name))
+    return bool(re.fullmatch(r'^[A-Za-z]{1,19}$', first_name))
 
 def validate_lname(last_name) -> bool:
-    return bool(re.fullmatch(r'^[A-Z][a-z]{1,19}$', last_name))
+    return bool(re.fullmatch(r'^[A-ZZa-z]{1,19}$', last_name))
+
+def validate_birth_date(birth_date) -> bool:
+    """
+    Validates if the birth_date is a string in the ISO 8601 format 'YYYY-MM-DD'.
+    Example: '2000-01-01'
+    """
+    if not isinstance(birth_date, str) or not birth_date.strip():
+        return False
+    if not re.fullmatch(r'^\d{4}-\d{2}-\d{2}$', birth_date.strip()):
+        return False
+    try:
+        datetime.strptime(birth_date.strip(), "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
+    
+def validate_gender(gender) -> bool:
+    """    Validates if the gender is either 'Male' or 'Female'.
+    """
+    if not isinstance(gender, str) or not gender.strip():
+        return False
+    return gender.strip().lower() in {"male", "female"}
 
 def validate_house_number(house_number) -> bool:  
     return bool(re.fullmatch(r'^[1-9][0-9]{0,3}$', house_number))
@@ -13,8 +35,12 @@ def validate_house_number(house_number) -> bool:
 def validate_zip(zip_code) -> bool:  
     return bool(re.fullmatch(r'^[1-9][0-9]{3}[A-Z]{2}$', zip_code))
 
-def validate_phone(phone) -> bool:  
-    return bool(re.fullmatch(r'^\+31-6-\d{8}$', phone))
+def validate_phone(phone) -> bool:
+    """
+    Validates if the phone is a string of exactly 8 digits (Dutch mobile number without country code and prefix).
+    Example: '12345678'
+    """
+    return bool(re.fullmatch(r'^\d{8}$', phone))
 
 def validate_email(email) -> bool:
     return bool(re.fullmatch(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email))
@@ -44,27 +70,15 @@ def validate_city(city_name) -> bool:
 
 def validate_brand(brand) -> bool:
     """
-    Validates if the brand is a non-empty string and one of the 10 predefined car brands.
+    Validates if the brand is a string.
     """
-    if not isinstance(brand, str) or not brand.strip():
-        return False
-    brands = {
-        "Volkswagen", "BMW", "Audi", "Mercedes-Benz", "Ford",
-        "Toyota", "Peugeot", "Fiat", "Renault", "Citroën"
-    }
-    return brand.strip() in brands
+    return isinstance(brand, str)
 
 def validate_model(model) -> bool:
     """
-    Validates if the model is a non-empty string and one of the 10 predefined car models.
+    Validates if the model is a non-empty string.
     """
-    if not isinstance(model, str) or not model.strip():
-        return False
-    models = {
-        "Golf", "3-serie", "A4", "C-Klasse", "Focus",
-        "Corolla", "308", "Panda", "Clio", "C3"
-    }
-    return model.strip() in models
+    return isinstance(model, str) and bool(model.strip())
 
 def validate_serial_number(serial_number) -> bool:
     """
