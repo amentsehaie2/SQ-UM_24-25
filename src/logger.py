@@ -72,6 +72,10 @@ def delete_logs():
     except Exception as e:
         print(f"Error deleting logs: {e}")
 
+def get_suspicious_logs():
+    """Geeft een lijst van alle verdachte logs."""
+    return [log for log in read_logs() if log.get("suspicious", False)]
+
 if __name__ == '__main__':
 
     # Adding logs
@@ -85,6 +89,10 @@ if __name__ == '__main__':
     # for log in logs:
     #     print(f"ID: {log['log_id']}  |  Date: {log['timestamp']}  |  User: {log['username']}  |  Desc: {log['description']}  |  Info: {log['additional_info']}  |  Suspicious: {log['suspicious']}")
 
+    # Reading suspicious logs only
+    # suspicious_logs = get_suspicious_logs()
+    # for log in suspicious_logs:
+    #     print(f"Suspicious: {log}")
 
     # Deleting logs
     # delete_logs()    

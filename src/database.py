@@ -2,6 +2,8 @@ import sqlite3
 from datetime import datetime
 import os
 import sys
+import shutil
+import uuid
 import bcrypt
 
 from encryption import _initialize_keys
@@ -113,12 +115,10 @@ def get_user_by_username(username):
         user_data = {
             "id": row[0],
             "username": decrypt_data(row[1]),
-            "password": row[2], # Return the hashed password as is
+            "password": row[2], 
             "role": decrypt_data(row[3]),
             "registration_date": row[4] 
         }
-
-
         return user_data
     return None
 
@@ -154,7 +154,104 @@ def add_traveller(first_name, last_name, birth_date, gender, street_name, house_
         print(f"Error: Traveller with email '{email}' might already exist or other integrity constraint failed.")
     finally:
         conn.close()
-    
+
+# --- BACKUP & RESTORE ---
+
+def create_backup():
+    """Maakt een backup van de hele output directory (inclusief de DB) als zip-bestand."""
+    backup_dir = os.path.join(_OUTPUT_DIR, "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_name = f"urban_mobility_backup_{timestamp}.zip"
+    backup_path = os.path.join(backup_dir, backup_name)
+    shutil.make_archive(backup_path.replace(".zip", ""), 'zip', _OUTPUT_DIR)
+    return backup_name
+
+def restore_backup_by_name(backup_name):
+    """Herstelt een backup op basis van de bestandsnaam."""
+    backup_dir = os.path.join(_OUTPUT_DIR, "backups")
+    backup_path = os.path.join(backup_dir, backup_name)
+    if not os.path.exists(backup_path):
+        print("Backup niet gevonden!")
+        return
+    # Verwijder bestaande .db bestanden
+    for file in os.listdir(_OUTPUT_DIR):
+        if file.endswith('.db'):
+            os.remove(os.path.join(_OUTPUT_DIR, file))
+    shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
+
+# --- RESTORE-CODE MANAGEMENT ---
+
+RESTORE_CODES_FILE = os.path.join(_OUTPUT_DIR, "restore_codes.txt")
+
+def generate_restore_code_db(target_system_admin, backup_name):
+    """Genereert een restore-code, gekoppeld aan een System Admin en een specifieke backup."""
+    code = str(uuid.uuid4())
+    os.makedirs(_OUTPUT_DIR, exist_ok=True)
+    with open(RESTORE_CODES_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
+    return code
+
+def use_restore_code_db(current_username, code):
+    """
+    Valideert een restore-code, koppelt aan de juiste System Admin & backup,
+    markeert de code als gebruikt. Returnt (True, backup_name) bij succes, anders (False, None).
+    """
+    lines = []
+    found = False
+    backup_name = None
+    if not os.path.exists(RESTORE_CODES_FILE):
+        return False, None
+    with open(RESTORE_CODES_FILE, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    with open(RESTORE_CODES_FILE, "w", encoding="utf-8") as f:
+        for line in lines:
+            code_line, sysadmin, backup, used = line.strip().split("|")
+            if code_line == code and sysadmin == current_username and used == "unused":
+                found = True
+                backup_name = backup
+                f.write(f"{code}|{sysadmin}|{backup}|used\n")
+            else:
+                f.write(line)
+    return found, backup_name
+
+# --- CRUD HELPERS GEBRUIKERSBEHEER ---
+
+def update_user_password(username, new_password):
+    """Reset het wachtwoord van een gebruiker (gebruikersnaam in plain text)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    encrypted_username = encrypt_data(username)
+    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+    cursor.execute("UPDATE users SET password = ? WHERE username = ?", (hashed_password, encrypted_username))
+    conn.commit()
+    conn.close()
+
+def delete_user_by_username(username):
+    """Verwijdert een gebruiker op basis van username (in plain text)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    encrypted_username = encrypt_data(username)
+    cursor.execute("DELETE FROM users WHERE username = ?", (encrypted_username,))
+    conn.commit()
+    conn.close()
+
+def get_users_by_role(role):
+    """Haalt alle users op met een bepaalde rol (in plain text)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    encrypted_role = encrypt_data(role)
+    cursor.execute("SELECT username, role, registration_date FROM users WHERE role = ?", (encrypted_role,))
+    users = []
+    for row in cursor.fetchall():
+        users.append({
+            "username": decrypt_data(row[0]),
+            "role": decrypt_data(row[1]),
+            "registration_date": row[2]
+        })
+    conn.close()
+    return users
+
 if __name__ == '__main__':
     os.makedirs(_OUTPUT_DIR, exist_ok=True) 
     initialize_db()
