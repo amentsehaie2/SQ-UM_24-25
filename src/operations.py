@@ -9,6 +9,7 @@ from validation import (
 )
 from encryption import encrypt_data, decrypt_data
 import bcrypt
+from logger import log_activity, read_logs
 
 # Use the same DB path logic as database.py
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -40,19 +41,17 @@ def add_traveller(first_name, last_name, birth_date, gender, street_name, house_
     encrypted_zip_code = encrypt_data(zip_code)
     encrypted_city = encrypt_data(city)
     encrypted_email = encrypt_data(email)
-    encrypted_phone_number = encrypt_data(phone_number)
     encrypted_mobile_phone = encrypt_data(mobile_phone)
     encrypted_license_number = encrypt_data(license_number)
     try:
         cursor.execute("""
             INSERT INTO travellers (first_name, last_name, birth_date, gender, street_name, 
-                                    house_number, zip_code, city, email, phone_number, 
-                                    mobile_phone, license_number, registration_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    house_number, zip_code, city, email, mobile_phone, 
+                                    license_number, registration_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (encrypted_first_name, encrypted_last_name, encrypted_birth_date, encrypted_gender,
               encrypted_street_name, encrypted_house_number, encrypted_zip_code, encrypted_city,
-              encrypted_email, encrypted_phone_number, encrypted_mobile_phone,
-              encrypted_license_number, registration_date))
+              encrypted_email, encrypted_mobile_phone, encrypted_license_number, registration_date))
         conn.commit()
         print("Traveller added.")
         return True
@@ -60,7 +59,7 @@ def add_traveller(first_name, last_name, birth_date, gender, street_name, house_
         print(f"Error: Traveller with email '{email}' might already exist or other integrity constraint failed.")
         return False
     finally:
-        conn.close()
+        conn.close() #WERKT VOLLEDIG
 
 def search_travellers(key):
     conn = get_db_connection()
@@ -123,6 +122,8 @@ def delete_traveller(customer_id):
     conn.close()
     print("Traveller deleted.")
     return True
+
+
 
 # === Scooter Operations ===
 def add_scooter(brand, model, serial_number, top_speed, battery_capacity, state_of_charge, target_range, location, out_of_service, mileage, last_service_date):
@@ -210,26 +211,28 @@ def delete_scooter(scooter_id):
     print("Scooter deleted.")
     return True
 
+
+
 # === User/System Admin Functions ===
-def list_users_and_roles():
+def list_users(): #WERKT VOLLEDIG   
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT username, role FROM users")
+    cursor.execute("SELECT id, username, password, role, registration_date FROM users")
     users = cursor.fetchall()
-    print("Users and roles:")
+    print("Users:")
     for user in users:
-        print(f"Username: {decrypt_data(user[0])}, Role: {decrypt_data(user[1])}")
+        print(f"ID: {user[0]}  |  Username: {decrypt_data(user[1])}  |  Password: [Hidden]  |  Role: {decrypt_data(user[3])}  |  Registration Date: {user[4]}")
     conn.close()
 
-def _set_user_password(conn, username, password):
+def _set_user_password(conn, username, password): # ADRIAN 
     encrypted_username = encrypt_data(username)
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET password=? WHERE username=?", (hashed_password, encrypted_username))
     conn.commit()
 
-def add_service_engineer():
-    conn = get_db_connection()
+def add_service_engineer():# WERKT VOLLEDIG
+    conn = get_db_connection ()
     username = input("Username: ")
     password = input("Password: ")
     encrypted_username = encrypt_data(username)
@@ -242,26 +245,70 @@ def add_service_engineer():
     print("Service Engineer added.")
     conn.close()
 
-def update_service_engineer_profile():
-    conn = get_db_connection()
-    old_username = input("Current Username: ")
-    new_username = input("New Username: ")
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET username=? WHERE username=?", (encrypt_data(new_username), encrypt_data(old_username)))
-    conn.commit()
-    conn.close()
-    print("Profile updated.")
+def update_service_engineer_username(): # WERKT VOLLEDIG
+    """Updates the username of a service engineer."""
+    try:
+        user_id = int(input("Enter the ID of the user you want to update: "))
+    except ValueError:
+        print("Invalid ID format. Please enter a number.")
+        return
 
-def delete_service_engineer():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    result = cursor.fetchone()
+
+    if not result:
+        print("User with that ID not found.")
+        conn.close()
+        return
+
+    current_username_encrypted = result[0]
+    current_username = decrypt_data(current_username_encrypted)
+
+    current_username_input = input(f"Enter the current username for user ID {user_id}: ")
+    if current_username_input != current_username:
+        print("Incorrect current username.")
+        conn.close()
+        return
+
+    new_username = input("Enter the new username: ")
+    if new_username == current_username:
+        print("New username cannot be the same as the current username.")
+        log_activity("test_user", f"Attempted to update username to {new_username}", "Username already exists", False)
+        conn.close()
+        return
+
+    if not validate_username(new_username):
+        print("Invalid username format. Please use 3-20 alphanumeric characters or underscores.")
+        log_activity("test_user", f"Attempted to update username to {new_username}", "Invalid username format", False)
+        conn.close()
+        return
+
+    cursor.execute("SELECT id FROM users WHERE username = ?", (encrypt_data(new_username),))
+    if cursor.fetchone():
+        print("This username is already taken.")
+        conn.close()
+        log_activity("test_user", f"Attempted to update username to {new_username}", "Username already exists", False)
+        return
+
+    encrypted_new_username = encrypt_data(new_username)
+    cursor.execute("UPDATE users SET username = ? WHERE id = ?", (encrypted_new_username, user_id))
+    conn.commit()
+    print("Username updated successfully.")
+    conn.close()
+
+def delete_service_engineer(): # WERKT NIET
     conn = get_db_connection()
     username = input("Username to delete: ")
+    #CONFIRM DELETE
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE username=? AND role=?", (encrypt_data(username), encrypt_data("engineer")))
     conn.commit()
     conn.close()
     print("Engineer deleted.")
 
-def reset_service_engineer_password():
+def reset_service_engineer_password(): # set user moet nog af
     conn = get_db_connection()
     username = input("Username: ")
     new_password = secrets.token_urlsafe(8)
@@ -269,7 +316,7 @@ def reset_service_engineer_password():
     conn.close()
     print(f"Temporary password: {new_password}")
 
-def update_service_engineer_password():
+def update_service_engineer_password(): # set user moet nog af
     conn = get_db_connection()
     username = input("Username: ")
     password = input("New Password: ")
@@ -277,7 +324,7 @@ def update_service_engineer_password():
     conn.close()
     print("Password updated.")
 
-def add_system_admin():
+def add_system_admin(): # MOET NOG VALIDATED WORDEN
     conn = get_db_connection()
     username = input("Username: ")
     password = input("Password: ")
@@ -291,26 +338,85 @@ def add_system_admin():
     conn.close()
     print("System Admin added.")
 
-def update_system_admin_profile():
-    conn = get_db_connection()
-    old_username = input("Current Username: ")
-    new_username = input("New Username: ")
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET username=? WHERE username=?", (encrypt_data(new_username), encrypt_data(old_username)))
-    conn.commit()
-    conn.close()
-    print("Profile updated.")
+def update_system_admin_username(): # WERKT VOLLEDIG
+    """Updates the username of a system administrator."""
+    try:
+        user_id = int(input("Enter the ID of the system administrator you want to update: "))
+    except ValueError:
+        print("Invalid ID format. Please enter a number.")
+        return
 
-def delete_system_admin():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username, role FROM users WHERE id = ?", (user_id,))
+    result = cursor.fetchone()
+
+    if not result:
+        print("User with that ID not found.")
+        conn.close()
+        return
+
+    current_username_encrypted = result[0]
+    current_username = decrypt_data(current_username_encrypted)
+    user_role_encrypted = result[1]
+    user_role = decrypt_data(user_role_encrypted)
+
+    if user_role != "admin":
+        print("User with that ID is not a System Administrator.")
+        conn.close()
+        return
+
+    current_username_input = input(f"Enter the current username for system administrator ID {user_id}: ")
+    if current_username_input != current_username:
+        print("Incorrect current username.")
+        conn.close()
+        return
+
+    new_username = input("Enter the new username: ")
+    if new_username == current_username:
+        print("New username cannot be the same as the current username.")
+        conn.close()
+        return
+
+    if not validate_username(new_username):
+        print("Invalid username format. Please use 3-20 alphanumeric characters or underscores.")
+
+        conn.close()
+        return
+
+    cursor.execute("SELECT id FROM users WHERE username = ?", (encrypt_data(new_username),))
+    if cursor.fetchone():
+        print("This username is already taken.")
+        conn.close()
+        return
+
+    encrypted_new_username = encrypt_data(new_username)
+    cursor.execute("UPDATE users SET username = ? WHERE id = ?", (encrypted_new_username, user_id))
+    conn.commit()
+    print("Username updated successfully.")
+    conn.close()
+
+def update_system_admin_password():# set user moet nog af
+    conn = get_db_connection()
+    username = input("Username: ")
+    old_password = input("Current Password: ")
+    new_password = input("New Password: ")
+    #NIEUWE NOG VALIDATEN
+    _set_user_password(conn, username, new_password)
+    conn.close()
+    print("Password updated.")
+
+def delete_system_admin():#WERKT NIET DOOR QUERY
     conn = get_db_connection()
     username = input("Username to delete: ")
+    #CONFIRM DELETE
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE username=? AND role=?", (encrypt_data(username), encrypt_data("admin")))
     conn.commit()
     conn.close()
     print("Admin deleted.")
 
-def reset_system_admin_password():
+def reset_system_admin_password():#set user moet nog af
     conn = get_db_connection()
     username = input("Username: ")
     new_password = secrets.token_urlsafe(8)
@@ -318,15 +424,7 @@ def reset_system_admin_password():
     conn.close()
     print(f"Temporary password: {new_password}")
 
-def update_system_admin_password():
-    conn = get_db_connection()
-    username = input("Username: ")
-    password = input("New Password: ")
-    _set_user_password(conn, username, password)
-    conn.close()
-    print("Password updated.")
-
-def view_system_logs():
+def view_system_logs():# niet nodig, gebruik logger.py
     log_path = os.path.join(OUTPUT_DIR, "system.log")
     if os.path.exists(log_path):
         with open(log_path) as log:
@@ -334,13 +432,13 @@ def view_system_logs():
     else:
         print("No logs found.")
 
-def make_backup():
+def make_backup(): #jayden
     os.makedirs(BACKUP_DIR, exist_ok=True)
     backup_file = os.path.join(BACKUP_DIR, f"urban_mobility_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db")
     shutil.copy2(DB_PATH, backup_file)
     print(f"Backup created at {backup_file}")
 
-def restore_backup():
+def restore_backup(): #jayden
     backups = sorted(os.listdir(BACKUP_DIR))
     if not backups:
         print("No backup available.")
@@ -353,15 +451,52 @@ def restore_backup():
     shutil.copy2(backup_file, DB_PATH)
     print("Backup restored.")
 
-def generate_restore_code():
+def generate_restore_code(): #jayden
     code = secrets.token_urlsafe(16)
     with open(RESTORE_CODE_FILE, "w") as f:
         f.write(code)
     print(f"Restore code generated and saved.")
 
-def revoke_restore_code():
+def revoke_restore_code(): #jayden
     if os.path.exists(RESTORE_CODE_FILE):
         os.remove(RESTORE_CODE_FILE)
         print("Restore code revoked.")
     else:
         print("No restore code to revoke.")
+
+
+if __name__ == "__main__":
+
+    ###TRAVELLER OPERATIONS
+    # add_traveller("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "1234AB", "Rotterdam", "test@example.com", "+31-6-12345678", "+31-6-12345678", "AB1234567")
+    # delete_traveller(1)
+    # update_traveller(1, first_name="Jane", last_name="Doe", birth_date="1990-01-01", gender="Female", street_name="New Street", house_number="456", zip_code="5678CD", city="Amsterdam", email="jane.doe@example.com", mobile_phone="+31-6-87654321", license_number="CD9876543")
+    # search_travellers("Jane")
+
+    ###SCOOTER OPERATIONS
+    # add_vehicle("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "12345", "City", "8Fg6y@example.com", "1234567890", "1234567890", "1234567890")
+    # update_vehicle("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "12345", "City", "8Fg6y@example.com", "1234567890", "1234567890", "1234567890")   
+    # delete_vehicle("John", "Doe")
+    # search_vehicles("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "12345", "City", "8Fg6y@example.com", "1234567890", "1234567890", "1234567890")
+
+
+    list_users()
+
+    ###SYSTEM ADMIN FUNCTIONS
+    # add_system_admin()
+    # update_system_admin_username()
+    # update_system_admin_password()   
+    # delete_system_admin()
+    # reset_system_admin_password()
+
+    ###SERVICE ENGINEER FUNCTIONS
+    # add_service_engineer()
+    #update_service_engineer_username()
+    # logs = read_logs()
+    # for log in logs:
+    #     print("\nLogs")
+    #     print(f"ID: {log['log_id']}  |  Date: {log['timestamp']}  |  User: {log['username']}  |  Desc: {log['description']}  |  Info: {log['additional_info']}  |  Suspicious: {log['suspicious']}")
+
+    # update_service_engineer_password()
+    # delete_service_engineer()
+    # reset_service_engineer_password()
