@@ -77,13 +77,13 @@ if __name__ == '__main__':
     # Adding logs
     # log_activity("test_user", "Pipe | Test", "Special & Characters", True)
     # log_activity("test_user", "boohooy | Test", "Special & Characters", False)
-    log_activity("test_user", "attempted sql injection", "Special & Characters", True)
+    # log_activity("test_user", "attempted sql injection", "Special & Characters", True)
     
 
     # Reading logs
-    # logs = read_logs()
-    # for log in logs:
-    #     print(f"ID: {log['log_id']}  |  Date: {log['timestamp']}  |  User: {log['username']}  |  Desc: {log['description']}  |  Info: {log['additional_info']}  |  Suspicious: {log['suspicious']}")
+    logs = read_logs()
+    for log in logs:
+        print(f"ID: {log['log_id']}  |  Date: {log['timestamp']}  |  User: {log['username']}  |  Desc: {log['description']}  |  Info: {log['additional_info']}  |  Suspicious: {log['suspicious']}")
 
 
     # Deleting logs
