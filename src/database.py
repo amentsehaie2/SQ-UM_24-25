@@ -59,7 +59,6 @@ def initialize_db():
             zip_code TEXT,            -- Encrypt
             city TEXT,                -- Encrypt
             email TEXT UNIQUE,        -- Encrypt
-            phone_number TEXT,        -- Encrypt
             mobile_phone TEXT,        -- Encrypt
             license_number TEXT,      -- Encrypt
             registration_date DATETIME  
