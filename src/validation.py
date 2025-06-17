@@ -137,6 +137,26 @@ def validate_SoC(SoC) -> bool:
 def validate_target_range(target_range) -> bool:
     return isinstance(target_range, int) and target_range > 0
 
+def validate_location(location) -> bool:
+    """
+    Validates if the location is a string in the format 'latitude,longitude' with exactly 5 decimal places.
+    Example: '51.92250,4.47917'
+    """
+    if not isinstance(location, str):
+        return False
+    try:
+        lat_str, lon_str = location.strip().split(',')
+        lat = float(lat_str)
+        lon = float(lon_str)
+        pattern = r'^-?\d{1,2}\.\d{5},-?\d{1,3}\.\d{5}$'
+        return (
+            -90 <= lat <= 90 and
+            -180 <= lon <= 180 and
+            re.fullmatch(pattern, location.strip()) is not None
+        )
+    except (ValueError, AttributeError):
+        return False
+
 def validate_OoS(OoS) -> bool:
     return isinstance(OoS, bool)
 
