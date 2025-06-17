@@ -12,7 +12,7 @@ from validation import (
 )
 from encryption import encrypt_data, decrypt_data
 import bcrypt
-from logger import log_activity, read_logs
+from logger import log_activity
 
 # Use the same DB path logic as database.py
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -172,37 +172,55 @@ def search_travellers():
     return results
 
 def update_traveller():
-    customer_id = input("Enter the Traveller ID to update: ")
+    customer_id = input("Enter the Traveller ID to update: ").strip()
+    
+    if not customer_id.isdigit():
+        print("Invalid Traveller ID format.")
+        return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT 1 FROM travellers WHERE customer_id=?", (customer_id,))
+    if not cursor.fetchone():
+        print("Traveller ID does not exist.")
+        conn.close()
+        return False
+
     print("Leave fields blank to skip updating them.")
     allowed_fields = {
-        "first_name": validate_fname,
-        "last_name": validate_lname,
-        "birth_date": validate_birth_date,
-        "gender": validate_gender,
-        "street_name": validate_street_name,
-        "house_number": validate_house_number,
-        "zip_code": validate_zip,
-        "city": validate_city,
-        "email": validate_email,
-        "mobile_phone": validate_phone,
-        "license_number": validate_license_number
+        "first_name": (validate_fname, True),
+        "last_name": (validate_lname, True),
+        "birth_date": (validate_birth_date, True),
+        "gender": (validate_gender, True),
+        "street_name": (validate_street_name, True),
+        "house_number": (validate_house_number, False),
+        "zip_code": (validate_zip, False),
+        "city": (validate_city, False),
+        "email": (validate_email, True),
+        "mobile_phone": (validate_phone, True),
+        "license_number": (validate_license_number, True)
     }
+
     updates = []
     values = []
-    for field, validator in allowed_fields.items():
-        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ")
-        if value.strip():
+
+    for field, (validator, should_encrypt) in allowed_fields.items():
+        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+        if value:
             if validator(value):
+                processed_value = encrypt_data(value) if should_encrypt else value
                 updates.append(f"{field}=?")
-                values.append(encrypt_data(value))
+                values.append(processed_value)
             else:
                 print(f"Invalid value for {field}. Update cancelled.")
+                conn.close()
                 return False
     if not updates:
         print("No valid fields to update.")
+        conn.close()
         return False
-    conn = get_db_connection()
-    cursor = conn.cursor()
+
     sql = f"UPDATE travellers SET {', '.join(updates)} WHERE customer_id=?"
     values.append(customer_id)
     cursor.execute(sql, tuple(values))
@@ -211,15 +229,35 @@ def update_traveller():
     print("Traveller updated.")
     return True
 
+
 def delete_traveller():
-    customer_id = input("Enter the Traveller ID to delete: ")
+    customer_id = input("Enter the Traveller ID to delete: ").strip()
+    
+    if not customer_id.isdigit():
+        print("Invalid Traveller ID format.")
+        return False
+
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    cursor.execute("SELECT 1 FROM travellers WHERE customer_id=?", (customer_id,))
+    if not cursor.fetchone():
+        print("Traveller ID does not exist.")
+        conn.close()
+        return False
+
+    confirm = input("Are you sure you want to delete this traveller? (yes/no): ").strip().lower()
+    if confirm != "yes":
+        print("Deletion cancelled.")
+        conn.close()
+        return False
+
     cursor.execute("DELETE FROM travellers WHERE customer_id=?", (customer_id,))
     conn.commit()
     conn.close()
     print("Traveller deleted.")
     return True
+
 
 # === Scooter Operations ===
 def add_scooter():
