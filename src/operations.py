@@ -128,23 +128,52 @@ def add_traveller():
     finally:
         conn.close() #WERKT VOLLEDIG
 
-def search_travellers(key):
+def search_travellers():
+    """
+    Prompt the user for a search key and display matching travellers.
+    Search is case-insensitive and matches substrings in:
+    customer_id, first_name, last_name, zip_code, mobile_phone, email, city.
+    """
+    key = input("Enter search key for travellers: ").strip().lower()
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT customer_id, first_name, last_name, zip_code, mobile_phone FROM travellers")
+    cursor.execute("""
+        SELECT customer_id, first_name, last_name, zip_code, mobile_phone, email, city
+        FROM travellers
+    """)
     results = []
     for row in cursor.fetchall():
+        customer_id = str(row[0])
         decrypted_first = decrypt_data(row[1])
         decrypted_last = decrypt_data(row[2])
-        if key.lower() in decrypted_first.lower() or key.lower() in decrypted_last.lower():
-            decrypted_zip = decrypt_data(row[3])
-            decrypted_phone = decrypt_data(row[4])
-            results.append((row[0], decrypted_first, decrypted_last, decrypted_zip, decrypted_phone))
+        decrypted_zip = decrypt_data(row[3])
+        decrypted_phone = decrypt_data(row[4])
+        decrypted_email = decrypt_data(row[5])
+        decrypted_city = decrypt_data(row[6])
+        if (
+            key in customer_id.lower()
+            or key in decrypted_first.lower()
+            or key in decrypted_last.lower()
+            or key in decrypted_zip.lower()
+            or key in decrypted_phone.lower()
+            or key in decrypted_email.lower()
+            or key in decrypted_city.lower()
+        ):
+            results.append((
+                row[0], decrypted_first, decrypted_last, decrypted_zip, decrypted_phone, decrypted_email, decrypted_city
+            ))
     conn.close()
+    if results:
+        print("Matching travellers:")
+        for r in results:
+            print(f"ID: {r[0]}, Name: {r[1]} {r[2]}, Zip: {r[3]}, Phone: {r[4]}, Email: {r[5]}, City: {r[6]}")
+    else:
+        print("No matching travellers found.")
     return results
 
-def update_traveller(customer_id, **kwargs):
-    # kwargs: any updatable field, must be validated and encrypted
+def update_traveller():
+    customer_id = input("Enter the Traveller ID to update: ")
+    print("Leave fields blank to skip updating them.")
     allowed_fields = {
         "first_name": validate_fname,
         "last_name": validate_lname,
@@ -160,13 +189,15 @@ def update_traveller(customer_id, **kwargs):
     }
     updates = []
     values = []
-    for field, value in kwargs.items():
-        if field in allowed_fields and allowed_fields[field](value):
-            updates.append(f"{field}=?")
-            values.append(encrypt_data(value))
-        else:
-            print(f"Invalid value for {field}.")
-            return False
+    for field, validator in allowed_fields.items():
+        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ")
+        if value.strip():
+            if validator(value):
+                updates.append(f"{field}=?")
+                values.append(encrypt_data(value))
+            else:
+                print(f"Invalid value for {field}. Update cancelled.")
+                return False
     if not updates:
         print("No valid fields to update.")
         return False
@@ -180,7 +211,8 @@ def update_traveller(customer_id, **kwargs):
     print("Traveller updated.")
     return True
 
-def delete_traveller(customer_id):
+def delete_traveller():
+    customer_id = input("Enter the Traveller ID to delete: ")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM travellers WHERE customer_id=?", (customer_id,))
@@ -301,7 +333,8 @@ def add_scooter():
     finally:
         conn.close()
 
-def search_scooters(key):
+def search_scooters():
+    key = input("Enter search key for scooters: ").strip().lower()
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT scooter_id, brand, model, serial_number, location FROM scooters")
@@ -311,38 +344,55 @@ def search_scooters(key):
         decrypted_model = decrypt_data(row[2])
         decrypted_serial = decrypt_data(row[3])
         decrypted_location = decrypt_data(row[4])
-        if (key.lower() in decrypted_brand.lower() or key.lower() in decrypted_model.lower() or key.lower() in decrypted_serial.lower()):
+        if (key in decrypted_brand.lower() or key in decrypted_model.lower() or key in decrypted_serial.lower()):
             results.append((row[0], decrypted_brand, decrypted_model, decrypted_serial, decrypted_location))
     conn.close()
+    if results:
+        print("Matching scooters:")
+        for r in results:
+            print(f"ID: {r[0]}, Brand: {r[1]}, Model: {r[2]}, Serial: {r[3]}, Location: {r[4]}")
+    else:
+        print("No matching scooters found.")
     return results
 
-def update_scooter(scooter_id, **kwargs):
+def update_scooter():
+    scooter_id = input("Enter the Scooter ID to update: ")
+    print("Leave fields blank to skip updating them.")
     allowed_fields = {
-        "brand": lambda x: True,
-        "model": lambda x: True,
-        "serial_number": lambda x: True,
-        "top_speed": lambda x: True,
-        "battery_capacity": lambda x: True,
-        "state_of_charge": lambda x: True,
-        "target_range": lambda x: True,
-        "location": lambda x: True,
-        "out_of_service": lambda x: True,
-        "mileage": lambda x: True,
-        "last_service_date": lambda x: True
+        "brand": validate_brand,
+        "model": validate_model,
+        "serial_number": validate_serial_number,
+        "top_speed": validate_top_speed,
+        "battery_capacity": validate_battery_capacity,
+        "state_of_charge": validate_SoC,
+        "target_range": validate_target_range,
+        "location": validate_location,
+        "out_of_service": validate_OoS,
+        "mileage": validate_mileage,
+        "last_service_date": validate_last_maint
     }
     updates = []
     values = []
-    for field, value in kwargs.items():
-        if field in allowed_fields and allowed_fields[field](value):
-            if field in {"brand", "model", "serial_number", "location"}:
-                updates.append(f"{field}=?")
-                values.append(encrypt_data(value))
+    for field, validator in allowed_fields.items():
+        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ")
+        if value.strip():
+            # Convert to correct type for numeric fields
+            if field in {"top_speed", "battery_capacity", "state_of_charge", "target_range", "mileage"}:
+                try:
+                    value = int(value)
+                except ValueError:
+                    print(f"Invalid value for {field}. Must be an integer.")
+                    return False
+            if validator(value):
+                if field in {"brand", "model", "serial_number", "location"}:
+                    updates.append(f"{field}=?")
+                    values.append(encrypt_data(value))
+                else:
+                    updates.append(f"{field}=?")
+                    values.append(value)
             else:
-                updates.append(f"{field}=?")
-                values.append(value)
-        else:
-            print(f"Invalid value for {field}.")
-            return False
+                print(f"Invalid value for {field}. Update cancelled.")
+                return False
     if not updates:
         print("No valid fields to update.")
         return False
@@ -356,7 +406,8 @@ def update_scooter(scooter_id, **kwargs):
     print("Scooter updated.")
     return True
 
-def delete_scooter(scooter_id):
+def delete_scooter():
+    scooter_id = input("Enter the Scooter ID to delete: ")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM scooters WHERE scooter_id=?", (scooter_id,))
@@ -364,8 +415,6 @@ def delete_scooter(scooter_id):
     conn.close()
     print("Scooter deleted.")
     return True
-
-
 
 # === User/System Admin Functions ===
 def list_users(): #WERKT VOLLEDIG   
@@ -452,10 +501,9 @@ def update_service_engineer_username(): # WERKT VOLLEDIG
     print("Username updated successfully.")
     conn.close()
 
-def delete_service_engineer(): # WERKT NIET
-    conn = get_db_connection()
+def delete_service_engineer():
     username = input("Username to delete: ")
-    #CONFIRM DELETE
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE username=? AND role=?", (encrypt_data(username), encrypt_data("engineer")))
     conn.commit()
@@ -492,8 +540,7 @@ def add_system_admin(): # MOET NOG VALIDATED WORDEN
     conn.close()
     print("System Admin added.")
 
-def update_system_admin_username(): # WERKT VOLLEDIG
-    """Updates the username of a system administrator."""
+def update_system_admin_username():
     try:
         user_id = int(input("Enter the ID of the system administrator you want to update: "))
     except ValueError:
@@ -560,10 +607,9 @@ def update_system_admin_password():# set user moet nog af
     conn.close()
     print("Password updated.")
 
-def delete_system_admin():#WERKT NIET DOOR QUERY
-    conn = get_db_connection()
+def delete_system_admin():
     username = input("Username to delete: ")
-    #CONFIRM DELETE
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE username=? AND role=?", (encrypt_data(username), encrypt_data("admin")))
     conn.commit()
@@ -578,8 +624,8 @@ def reset_system_admin_password():#set user moet nog af
     conn.close()
     print(f"Temporary password: {new_password}")
 
-def view_system_logs():# niet nodig, gebruik logger.py
-    log_path = os.path.join(OUTPUT_DIR, "system.log")
+def view_system_logs():
+    log_path = os.path.join(_OUTPUT_DIR, "system.log")
     if os.path.exists(log_path):
         with open(log_path) as log:
             print(log.read())
@@ -589,7 +635,7 @@ def view_system_logs():# niet nodig, gebruik logger.py
 def make_backup(): #jayden
     os.makedirs(BACKUP_DIR, exist_ok=True)
     backup_file = os.path.join(BACKUP_DIR, f"urban_mobility_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db")
-    shutil.copy2(DB_PATH, backup_file)
+    shutil.copy2(DATABASE_NAME, backup_file)
     print(f"Backup created at {backup_file}")
 
 def restore_backup(): #jayden
@@ -602,7 +648,7 @@ def restore_backup(): #jayden
         print(f"[{i}] {f}")
     idx = int(input("Choose backup number to restore: "))
     backup_file = os.path.join(BACKUP_DIR, backups[idx])
-    shutil.copy2(backup_file, DB_PATH)
+    shutil.copy2(backup_file, DATABASE_NAME)
     print("Backup restored.")
 
 def generate_restore_code(): #jayden
@@ -620,5 +666,7 @@ def revoke_restore_code(): #jayden
 
 
 # list_users()
-add_traveller()
+# add_traveller()
 # add_scooter()
+# search_travellers()
+search_scooters()
