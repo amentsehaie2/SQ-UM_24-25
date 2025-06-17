@@ -62,6 +62,12 @@ def read_logs():
 
     return decrypted_logs
 
+def print_logs():
+    logs = read_logs()
+    print("\nLogs:")
+    for log in logs:
+        print(f"ID: {log['log_id']}  |  Date: {log['timestamp']}  |  User: {log['username']}  |  Desc: {log['description']}  |  Info: {log['additional_info']}  |  Suspicious: {log['suspicious']}")    
+
 def delete_logs():
     """Deletes all logs from the log file by clearing its content."""
     try:
@@ -81,10 +87,7 @@ if __name__ == '__main__':
     
 
     # Reading logs
-    logs = read_logs()
-    for log in logs:
-        print(f"ID: {log['log_id']}  |  Date: {log['timestamp']}  |  User: {log['username']}  |  Desc: {log['description']}  |  Info: {log['additional_info']}  |  Suspicious: {log['suspicious']}")
-
+    print_logs()
 
     # Deleting logs
     # delete_logs()    
