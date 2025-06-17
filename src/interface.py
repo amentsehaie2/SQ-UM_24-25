@@ -1,5 +1,4 @@
-# Console menus for each user role  
-
+from auth import login, logout
 from operations import (
     add_traveller, update_traveller, delete_traveller, search_travellers,
     add_scooter, update_scooter, delete_scooter, search_scooters,
@@ -10,6 +9,14 @@ from operations import (
     generate_restore_code, revoke_restore_code, update_service_engineer_password,
     update_system_admin_password
 )
+
+def main():
+    while True:
+        user = login()
+        if user is None:
+            continue
+        main_menu(user)
+        logout(user)  # wordt aangeroepen als menu klaar is
 
 def main_menu(user):  
     if user["role"] == "super_admin":  
@@ -26,7 +33,7 @@ def super_admin_menu():
         print("2. Traveller Management")
         print("3. Scooter Management")
         print("4. System Administration")
-        print("5. Exit to main menu")
+        print("5. Uitloggen")
         choice = input("Select a category (1-5): ")
 
         if choice == "1":
@@ -38,7 +45,7 @@ def super_admin_menu():
         elif choice == "4":
             system_admin_menu()
         elif choice == "5":
-            print("Returning to main menu...")
+            print("Logging out...")
             break
         else:
             print("Invalid option. Please try again.")
@@ -55,7 +62,7 @@ def user_management_menu():
         print("7. Update System Administrator profile")
         print("8. Delete System Administrator")
         print("9. Update System Administrator password")
-        print("10. Back")
+        print("10. Terug")
         choice = input("Select an option (1-10): ")
 
         if choice == "1":
@@ -88,11 +95,10 @@ def traveller_management_menu():
         print("2. Update Traveller information")
         print("3. Delete Traveller")
         print("4. Search/Retrieve Traveller information")
-        print("5. Back")
+        print("5. Terug")
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
-            # Collect input and call add_traveller
             first_name = input("First name: ")
             last_name = input("Last name: ")
             birth_date = input("Birth date (YYYY-MM-DD): ")
@@ -145,7 +151,7 @@ def scooter_management_menu():
         print("2. Update Scooter information")
         print("3. Delete Scooter")
         print("4. Search/Retrieve Scooter information")
-        print("5. Back")
+        print("5. Terug")
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
@@ -202,7 +208,7 @@ def system_admin_menu():
         print("3. Restore a system backup")
         print("4. Generate restore-code for System Administrator")
         print("5. Revoke restore-code for System Administrator")
-        print("6. Back")
+        print("6. Uitloggen")
         choice = input("Select an option (1-6): ")
 
         if choice == "1":
@@ -216,6 +222,7 @@ def system_admin_menu():
         elif choice == "5":
             revoke_restore_code()
         elif choice == "6":
+            print("Logging out...")
             break
         else:
             print("Invalid option. Please try again.")
@@ -228,7 +235,7 @@ def service_engineer_menu():
         print("3. Update Service Engineer profile")
         print("4. Delete Service Engineer")
         print("5. Reset Service Engineer password")
-        print("6. Back")
+        print("6. Uitloggen")
         choice = input("Select an option (1-6): ")
 
         if choice == "1":
@@ -242,6 +249,10 @@ def service_engineer_menu():
         elif choice == "5":
             reset_service_engineer_password()
         elif choice == "6":
+            print("Logging out...")
             break
         else:
             print("Invalid option. Please try again.")
+
+if __name__ == "__main__":
+    main()

@@ -2,15 +2,12 @@ import sqlite3
 from datetime import datetime
 import os
 import sys
-import shutil
-import uuid
 import bcrypt
 
 from encryption import _initialize_keys
 
 # --- Conditional import for direct execution vs. package import ---
 if __package__ is None or __package__ == '':
-    # If run as a script, add the parent directory of 'src' to sys.path
     _src_dir_for_import = os.path.dirname(os.path.abspath(__file__)) 
     _project_root_for_import = os.path.dirname(_src_dir_for_import) 
     if _project_root_for_import not in sys.path:
@@ -82,7 +79,11 @@ def initialize_db():
             last_service_date DATETIME
         )  
     """)  
-# --- Example functions demonstrating encryption/decryption ---
+
+    conn.commit()
+    conn.close()
+
+# --- User management ---
 
 def add_user(username, password, role):
     conn = get_db_connection()
@@ -121,101 +122,6 @@ def get_user_by_username(username):
         return user_data
     return None
 
-def add_traveller(first_name, last_name, birth_date, gender, street_name, house_number, zip_code, city, email, phone_number, mobile_phone, license_number):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    registration_date = datetime.now()
-    encrypted_first_name = encrypt_data(first_name)
-    encrypted_last_name = encrypt_data(last_name)
-    encrypted_birth_date = encrypt_data(birth_date)
-    encrypted_gender = encrypt_data(gender)
-    encrypted_street_name = encrypt_data(street_name)
-    encrypted_house_number = encrypt_data(house_number)
-    encrypted_zip_code = encrypt_data(zip_code)
-    encrypted_city = encrypt_data(city)
-    encrypted_email = encrypt_data(email)
-    encrypted_phone_number = encrypt_data(phone_number)
-    encrypted_mobile_phone = encrypt_data(mobile_phone) 
-    encrypted_license_number = encrypt_data(license_number)
-
-    try:
-        cursor.execute("""
-            INSERT INTO travellers (first_name, last_name, birth_date, gender, street_name, 
-                                    house_number, zip_code, city, email, phone_number, 
-                                    mobile_phone, license_number, registration_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (encrypted_first_name, encrypted_last_name, encrypted_birth_date, encrypted_gender,
-              encrypted_street_name, encrypted_house_number, encrypted_zip_code, encrypted_city,
-              encrypted_email, encrypted_phone_number, encrypted_mobile_phone, 
-              encrypted_license_number, registration_date))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        print(f"Error: Traveller with email '{email}' might already exist or other integrity constraint failed.")
-    finally:
-        conn.close()
-
-# --- BACKUP & RESTORE ---
-
-def create_backup():
-    """Maakt een backup van de hele output directory (inclusief de DB) als zip-bestand."""
-    backup_dir = os.path.join(_OUTPUT_DIR, "backups")
-    os.makedirs(backup_dir, exist_ok=True)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_name = f"urban_mobility_backup_{timestamp}.zip"
-    backup_path = os.path.join(backup_dir, backup_name)
-    shutil.make_archive(backup_path.replace(".zip", ""), 'zip', _OUTPUT_DIR)
-    return backup_name
-
-def restore_backup_by_name(backup_name):
-    """Herstelt een backup op basis van de bestandsnaam."""
-    backup_dir = os.path.join(_OUTPUT_DIR, "backups")
-    backup_path = os.path.join(backup_dir, backup_name)
-    if not os.path.exists(backup_path):
-        print("Backup niet gevonden!")
-        return
-    # Verwijder bestaande .db bestanden
-    for file in os.listdir(_OUTPUT_DIR):
-        if file.endswith('.db'):
-            os.remove(os.path.join(_OUTPUT_DIR, file))
-    shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
-
-# --- RESTORE-CODE MANAGEMENT ---
-
-RESTORE_CODES_FILE = os.path.join(_OUTPUT_DIR, "restore_codes.txt")
-
-def generate_restore_code_db(target_system_admin, backup_name):
-    """Genereert een restore-code, gekoppeld aan een System Admin en een specifieke backup."""
-    code = str(uuid.uuid4())
-    os.makedirs(_OUTPUT_DIR, exist_ok=True)
-    with open(RESTORE_CODES_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
-    return code
-
-def use_restore_code_db(current_username, code):
-    """
-    Valideert een restore-code, koppelt aan de juiste System Admin & backup,
-    markeert de code als gebruikt. Returnt (True, backup_name) bij succes, anders (False, None).
-    """
-    lines = []
-    found = False
-    backup_name = None
-    if not os.path.exists(RESTORE_CODES_FILE):
-        return False, None
-    with open(RESTORE_CODES_FILE, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    with open(RESTORE_CODES_FILE, "w", encoding="utf-8") as f:
-        for line in lines:
-            code_line, sysadmin, backup, used = line.strip().split("|")
-            if code_line == code and sysadmin == current_username and used == "unused":
-                found = True
-                backup_name = backup
-                f.write(f"{code}|{sysadmin}|{backup}|used\n")
-            else:
-                f.write(line)
-    return found, backup_name
-
-# --- CRUD HELPERS GEBRUIKERSBEHEER ---
-
 def update_user_password(username, new_password):
     """Reset het wachtwoord van een gebruiker (gebruikersnaam in plain text)."""
     conn = get_db_connection()
@@ -250,6 +156,41 @@ def get_users_by_role(role):
         })
     conn.close()
     return users
+
+# --- Travellers management ---
+
+def add_traveller(first_name, last_name, birth_date, gender, street_name, house_number, zip_code, city, email, phone_number, mobile_phone, license_number):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    registration_date = datetime.now()
+    encrypted_first_name = encrypt_data(first_name)
+    encrypted_last_name = encrypt_data(last_name)
+    encrypted_birth_date = encrypt_data(birth_date)
+    encrypted_gender = encrypt_data(gender)
+    encrypted_street_name = encrypt_data(street_name)
+    encrypted_house_number = encrypt_data(house_number)
+    encrypted_zip_code = encrypt_data(zip_code)
+    encrypted_city = encrypt_data(city)
+    encrypted_email = encrypt_data(email)
+    encrypted_phone_number = encrypt_data(phone_number)
+    encrypted_mobile_phone = encrypt_data(mobile_phone) 
+    encrypted_license_number = encrypt_data(license_number)
+
+    try:
+        cursor.execute("""
+            INSERT INTO travellers (first_name, last_name, birth_date, gender, street_name, 
+                                    house_number, zip_code, city, email, phone_number, 
+                                    mobile_phone, license_number, registration_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (encrypted_first_name, encrypted_last_name, encrypted_birth_date, encrypted_gender,
+              encrypted_street_name, encrypted_house_number, encrypted_zip_code, encrypted_city,
+              encrypted_email, encrypted_phone_number, encrypted_mobile_phone, 
+              encrypted_license_number, registration_date))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        print(f"Error: Traveller with email '{email}' might already exist or other integrity constraint failed.")
+    finally:
+        conn.close()
 
 if __name__ == '__main__':
     os.makedirs(_OUTPUT_DIR, exist_ok=True) 

@@ -1,23 +1,20 @@
-# auth.py
-# Handles user authentication, password hashing, username decryption search, validation, and login flow
 import os
 import sys
 import sqlite3
-import re
 import bcrypt
-import hashlib
 from datetime import datetime
-from database import DATABASE_NAME, add_user, get_user_by_username, update_user_password, delete_user_by_username, get_users_by_role, create_backup, generate_restore_code_db, use_restore_code_db, restore_backup_by_name
 
-_src_dir = os.path.dirname(os.path.abspath(__file__))
-_project_root = os.path.dirname(_src_dir)
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
+from database import DATABASE_NAME, get_user_by_username
 
 try:
     from src.encryption import decrypt_data
 except ImportError:
     from encryption import decrypt_data
+
+try:
+    from src.validation import validate_username, validate_password
+except ImportError:
+    from validation import validate_username, validate_password
 
 SUPER_ADMIN = {"username": "super_admin", "password": "Admin_123?"}
 
@@ -28,25 +25,12 @@ def hash_password(password):
 def verify_password(password, hashed_password):
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
 
-def validate_username(username):
-    if not (8 <= len(username) <= 10):
-        return False
-    if not re.match(r"^[A-Za-z_][A-Za-z0-9_.'-]{7,9}$", username):
-        return False
-    return True
-
-def validate_password(password):
-    if not (12 <= len(password) <= 30):
-        return False
-    if not re.search(r"[A-Z]", password):
-        return False
-    if not re.search(r"[a-z]", password):
-        return False
-    if not re.search(r"[0-9]", password):
-        return False
-    if not re.search(r"[~!@#$%&_\-+=`|\\(){}\[\]:;'<>,.?/]", password):
-        return False
-    return True
+def log_action(username, description, suspicious=False):
+    flag = "SUSPICIOUS" if suspicious else "OK"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_line = f"{now} | {username} | {description} | {flag}\n"
+    with open(os.path.join(os.path.dirname(__file__), "activity.log"), "a", encoding="utf-8") as f:
+        f.write(log_line)
 
 def get_all_users_from_db():
     conn = sqlite3.connect(DATABASE_NAME)
@@ -54,7 +38,6 @@ def get_all_users_from_db():
     cursor.execute("SELECT username, password, role, registration_date FROM users")
     rows = cursor.fetchall()
     conn.close()
-
     users = []
     for enc_username, hashed_pw, enc_role, reg_date in rows:
         try:
@@ -70,23 +53,14 @@ def get_all_users_from_db():
         })
     return users
 
-def log_action(username, description, suspicious=False):
-    # Eenvoudige logregel met tijd (optioneel: versleutel hier)
-    flag = "SUSPICIOUS" if suspicious else "OK"
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_line = f"{now} | {username} | {description} | {flag}\n"
-    with open(os.path.join(os.path.dirname(__file__), "activity.log"), "a", encoding="utf-8") as f:
-        f.write(log_line)
-
 def login():
     username_input = input("Username: ").strip()
     password_input = input("Password: ").strip()
 
-    if (username_input == SUPER_ADMIN["username"] and
-        password_input == SUPER_ADMIN["password"]):
+    if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
         log_action(username_input, "Super Admin login", False)
         print("Super Admin logged in successfully.")
-        return {"username": username_input, "role": "Super Admin"}
+        return {"username": username_input, "role": "super_admin"}
 
     all_users = get_all_users_from_db()
     for user in all_users:
@@ -104,101 +78,6 @@ def login():
     print("User not found.")
     return None
 
-# --- USER MANAGEMENT: CRUD voor System Admins en Service Engineers ---
-
-def create_system_admin(current_user):
-    # Alleen Super Admin mag
-    if current_user["role"] != "Super Admin":
-        print("Permission denied: Alleen Super Admin mag System Admins aanmaken!")
-        return
-    username = input("Nieuwe System Admin username: ").strip()
-    if not validate_username(username):
-        print("Invalid username format.")
-        return
-    password = input("Nieuwe System Admin wachtwoord: ").strip()
-    if not validate_password(password):
-        print("Invalid password format.")
-        return
-    first_name = input("Voornaam: ").strip()
-    last_name = input("Achternaam: ").strip()
-    add_user(username, password, "system_admin", first_name, last_name)
-    log_action(current_user["username"], f"System Admin aangemaakt: {username}", False)
-    print(f"System Admin '{username}' succesvol aangemaakt.")
-
-def create_service_engineer(current_user):
-    if current_user["role"] not in ["Super Admin", "system_admin"]:
-        print("Permission denied: Alleen System Admin/Super Admin mag Service Engineers aanmaken!")
-        return
-    username = input("Nieuwe Service Engineer username: ").strip()
-    if not validate_username(username):
-        print("Invalid username format.")
-        return
-    password = input("Nieuwe Service Engineer wachtwoord: ").strip()
-    if not validate_password(password):
-        print("Invalid password format.")
-        return
-    first_name = input("Voornaam: ").strip()
-    last_name = input("Achternaam: ").strip()
-    add_user(username, password, "service_engineer", first_name, last_name)
-    log_action(current_user["username"], f"Service Engineer aangemaakt: {username}", False)
-    print(f"Service Engineer '{username}' succesvol aangemaakt.")
-
-def reset_user_password(current_user):
-    # System Admin of Super Admin
-    if current_user["role"] not in ["Super Admin", "system_admin"]:
-        print("Permission denied: Alleen System Admin/Super Admin mag wachtwoorden resetten!")
-        return
-    username = input("Welke username resetten? ").strip()
-    temp_password = "Temp!123456"  # OF: random generator
-    update_user_password(username, temp_password)
-    log_action(current_user["username"], f"Wachtwoord gereset voor {username}", True)
-    print(f"Wachtwoord voor '{username}' is gereset naar: {temp_password}")
-
-def delete_user(current_user):
-    if current_user["role"] not in ["Super Admin", "system_admin"]:
-        print("Permission denied: Alleen System Admin/Super Admin mag verwijderen!")
-        return
-    username = input("Username om te verwijderen: ").strip()
-    if username.lower() == "super_admin":
-        print("Kan Super Admin niet verwijderen!")
-        return
-    delete_user_by_username(username)
-    log_action(current_user["username"], f"Gebruiker verwijderd: {username}", True)
-    print(f"Gebruiker '{username}' verwijderd.")
-
-def show_users_by_role(current_user):
-    role = input("Welke rol tonen? [system_admin/service_engineer]: ").strip().lower()
-    users = get_users_by_role(role)
-    for u in users:
-        print(f"Gebruiker: {u['username']} | Rol: {u['role']} | Registratie: {u['registration_date']}")
-
-# --- BACKUP EN RESTORE ---
-
-def backup_database(current_user):
-    backup_name = create_backup()
-    log_action(current_user["username"], f"Backup gemaakt: {backup_name}", False)
-    print(f"Backup gemaakt: {backup_name}")
-
-def generate_restore_code(current_user):
-    if current_user["role"] != "Super Admin":
-        print("Permission denied: Alleen Super Admin mag restore-codes genereren!")
-        return
-    sysadmin = input("Voor welke System Admin? Username: ").strip()
-    backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
-    code = generate_restore_code_db(sysadmin, backup_name)
-    log_action(current_user["username"], f"Restore-code gegenereerd voor {sysadmin} backup: {backup_name}", False)
-    print(f"Restore-code voor {sysadmin}: {code}")
-
-def use_restore_code(current_user):
-    if current_user["role"] != "system_admin":
-        print("Alleen System Admin mag een restore uitvoeren!")
-        return
-    code = input("Voer restore-code in: ").strip()
-    ok, backup_name = use_restore_code_db(current_user["username"], code)
-    if not ok:
-        log_action(current_user["username"], f"Restore attempt FAILED met code {code}", True)
-        print("Restore-code ongeldig of niet voor deze gebruiker!")
-        return
-    restore_backup_by_name(backup_name)
-    log_action(current_user["username"], f"Backup gerestored: {backup_name}", True)
-    print(f"Backup '{backup_name}' succesvol hersteld.")
+def logout(user):
+    log_action(user["username"], "User logged out", False)
+    print(f"{user['username']} is uitgelogd.")
