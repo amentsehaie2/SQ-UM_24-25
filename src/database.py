@@ -1,10 +1,13 @@
-import sqlite3  
+import sqlite3 
+import bcrypt 
 from datetime import datetime
 import os
 import sys
-import bcrypt
 
 from encryption import _initialize_keys
+
+# --- INITIALIZE KEYS EARLY (BELANGRIJK!) ---
+_initialize_keys()
 
 # --- Conditional import for direct execution vs. package import ---
 if __package__ is None or __package__ == '':
@@ -17,7 +20,6 @@ else:
     from .encryption import encrypt_data, decrypt_data
 # --- End conditional import ---
 
-# --- Determine project root and output directory for database ---
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
 _OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
@@ -92,6 +94,7 @@ def add_user(username, password, role):
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     encrypted_role = encrypt_data(role)
     registration_date = datetime.now()
+    print("DEBUG: Encrypted username bij insert:", encrypted_username)
     try:
         cursor.execute("""
             INSERT INTO users (username, password, role, registration_date)
@@ -104,61 +107,80 @@ def add_user(username, password, role):
         conn.close()
 
 def get_user_by_username(username):
+    """
+    Haalt een gebruiker op door alle gebruikers te laden, username te decrypten en te vergelijken.
+    Dit werkt altijd, zelfs als usernames encrypted zijn met een random key/IV per encryptie.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
-    encrypted_search_username = encrypt_data(username) 
-    cursor.execute("SELECT id, username, password, role, registration_date FROM users WHERE username = ?", 
-                   (encrypted_search_username,))
-    row = cursor.fetchone()
+    cursor.execute("SELECT id, username, password, role, registration_date FROM users")
+    rows = cursor.fetchall()
     conn.close()
-    if row:
-        user_data = {
-            "id": row[0],
-            "username": decrypt_data(row[1]),
-            "password": row[2], 
-            "role": decrypt_data(row[3]),
-            "registration_date": row[4] 
-        }
-        return user_data
+    for row in rows:
+        decrypted_username = decrypt_data(row[1])
+        if decrypted_username == username:
+            user_data = {
+                "id": row[0],
+                "username": decrypted_username,
+                "password": row[2],
+                "role": decrypt_data(row[3]),
+                "registration_date": row[4]
+            }
+            return user_data
     return None
 
 def update_user_password(username, new_password):
     """Reset het wachtwoord van een gebruiker (gebruikersnaam in plain text)."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    encrypted_username = encrypt_data(username)
-    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-    cursor.execute("UPDATE users SET password = ? WHERE username = ?", (hashed_password, encrypted_username))
-    conn.commit()
+    # zoek op decrypt!
+    cursor.execute("SELECT id, username FROM users")
+    rows = cursor.fetchall()
+    user_id = None
+    for row in rows:
+        if decrypt_data(row[1]) == username:
+            user_id = row[0]
+            break
+    if user_id is not None:
+        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, user_id))
+        conn.commit()
     conn.close()
 
 def delete_user_by_username(username):
     """Verwijdert een gebruiker op basis van username (in plain text)."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    encrypted_username = encrypt_data(username)
-    cursor.execute("DELETE FROM users WHERE username = ?", (encrypted_username,))
-    conn.commit()
+    cursor.execute("SELECT id, username FROM users")
+    rows = cursor.fetchall()
+    user_id = None
+    for row in rows:
+        if decrypt_data(row[1]) == username:
+            user_id = row[0]
+            break
+    if user_id is not None:
+        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
     conn.close()
 
 def get_users_by_role(role):
-    """Haalt alle users op met een bepaalde rol (in plain text)."""
+    """Haalt alle users op en filtert in Python op role (decrypted)."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    encrypted_role = encrypt_data(role)
-    cursor.execute("SELECT username, role, registration_date FROM users WHERE role = ?", (encrypted_role,))
+    cursor.execute("SELECT username, role, registration_date FROM users")
     users = []
     for row in cursor.fetchall():
-        users.append({
-            "username": decrypt_data(row[0]),
-            "role": decrypt_data(row[1]),
-            "registration_date": row[2]
-        })
+        role_decrypted = decrypt_data(row[1])
+        if role_decrypted == role:
+            users.append({
+                "username": decrypt_data(row[0]),
+                "role": role_decrypted,
+                "registration_date": row[2]
+            })
     conn.close()
     return users
 
 # --- Travellers management ---
-
 def add_traveller(first_name, last_name, birth_date, gender, street_name, house_number, zip_code, city, email, phone_number, mobile_phone, license_number):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -198,3 +220,4 @@ if __name__ == '__main__':
     print(f"Database initialized in {DATABASE_NAME}.")
     _initialize_keys()
     print("Encryption keys initialized.")
+

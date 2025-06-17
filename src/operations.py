@@ -3,6 +3,7 @@ import os
 import shutil
 import secrets
 import bcrypt
+import uuid
 from datetime import datetime
 from validation import (
     validate_zip, validate_phone, validate_fname, validate_lname, validate_house_number,
@@ -619,7 +620,7 @@ def generate_restore_code_db(target_system_admin, backup_name):
     """Genereert een restore-code, gekoppeld aan een System Admin en een specifieke backup."""
     code = str(uuid.uuid4())
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
-    with open(RESTORE_CODES_FILE, "a", encoding="utf-8") as f:
+    with open(RESTORE_CODE_FILE, "a", encoding="utf-8") as f:
         f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
     log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin} backup: {backup_name}", suspicious=False)
     print(f"Restore-code voor {target_system_admin}: {code}")
@@ -633,11 +634,11 @@ def use_restore_code_db(current_username, code):
     lines = []
     found = False
     backup_name = None
-    if not os.path.exists(RESTORE_CODES_FILE):
+    if not os.path.exists(RESTORE_CODE_FILE):
         return False, None
-    with open(RESTORE_CODES_FILE, "r", encoding="utf-8") as f:
+    with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
         lines = f.readlines()
-    with open(RESTORE_CODES_FILE, "w", encoding="utf-8") as f:
+    with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
         for line in lines:
             code_line, sysadmin, backup, used = line.strip().split("|")
             if code_line == code and sysadmin == current_username and used == "unused":
@@ -649,13 +650,13 @@ def use_restore_code_db(current_username, code):
     return found, backup_name
 
 def revoke_restore_code_db(code):
-    if not os.path.exists(RESTORE_CODES_FILE):
+    if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore-codes-bestand niet gevonden!")
         return
     lines = []
-    with open(RESTORE_CODES_FILE, "r", encoding="utf-8") as f:
+    with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
         lines = f.readlines()
-    with open(RESTORE_CODES_FILE, "w", encoding="utf-8") as f:
+    with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
         for line in lines:
             code_line, sysadmin, backup, used = line.strip().split("|")
             if code_line == code and used == "unused":

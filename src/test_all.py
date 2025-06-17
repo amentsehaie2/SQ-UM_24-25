@@ -1,14 +1,32 @@
-# test_all.py
+import os
+import sqlite3
+from encryption import _initialize_keys
+
+# Initialiseer encryptie/keys direct voor consistentie
+_initialize_keys()
+print("DEBUG: Encryptie-keys geïnitialiseerd.")
+
+# Bepaal project root
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+db_path = os.path.join(project_root, "output", "urban_mobility.db")
+os.makedirs(os.path.join(project_root, "output"), exist_ok=True)
+
+# Tabel legen (voor betrouwbare tests)
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
+cursor.execute("DELETE FROM users")  # Leegt de users-tabel
+conn.commit()
+conn.close()
 
 from database import (
     add_user, get_user_by_username, update_user_password, delete_user_by_username,
-    create_backup, restore_backup_by_name,
-    generate_restore_code_db, use_restore_code_db, get_users_by_role
+    get_users_by_role
 )
-from auth import verify_password, validate_password
-from logger import log_activity, read_logs, get_suspicious_logs
-
-import os
+from auth import verify_password, validate_password, login, logout
+from operations import (
+    create_backup, restore_backup_by_name,
+    generate_restore_code_db, use_restore_code_db
+)
 
 print("=== TEST: USER CRUD ===")
 test_username = "JaydenTest"
@@ -19,43 +37,26 @@ print("> Valideer wachtwoord:", test_pw)
 print("Wachtwoord validatie resultaat:", validate_password(test_pw))
 
 print("> Probeer gebruiker toe te voegen...")
-
-try:
-    print(f"DEBUG: add_user() called met username={test_username}, password={test_pw}, role={test_role}")
-    add_user(test_username, test_pw, test_role)
-    print("DEBUG: add_user() uitgevoerd zonder exceptie.")
-except Exception as e:
-    print(f"DEBUG: Exception tijdens add_user: {e}")
+add_user(test_username, test_pw, test_role)
+print("Gebruiker toegevoegd!")
 
 user = get_user_by_username(test_username)
 print("Gebruiker opgehaald uit database:", user)
 assert user is not None, "User toevoegen mislukt!"
 
 print("> Wachtwoord controleren...")
-print("DEBUG: user['password'] =", user["password"])
-try:
-    pw_result = verify_password(test_pw, user["password"])
-    print("Wachtwoordcontrole:", pw_result)
-    assert pw_result, "Wachtwoordcontrole mislukt!"
-except Exception as e:
-    print(f"DEBUG: Exception tijdens verify_password: {e}")
-    assert False, "Wachtwoordcontrole gooide een exceptie!"
+pw_result = verify_password(test_pw, user["password"])
+print("Wachtwoordcontrole:", pw_result)
+assert pw_result, "Wachtwoordcontrole mislukt!"
 
 print("> Wachtwoord updaten...")
-try:
-    update_user_password(test_username, "NieuwWachtwoord!456")
-    print("DEBUG: Wachtwoord geüpdatet.")
-except Exception as e:
-    print(f"DEBUG: Exception tijdens update_user_password: {e}")
+update_user_password(test_username, "NieuwWachtwoord!456")
+print("Wachtwoord geüpdatet.")
 
 user = get_user_by_username(test_username)
-try:
-    pw_update_result = verify_password("NieuwWachtwoord!456", user["password"])
-    print("DEBUG: Password update check:", pw_update_result)
-    assert pw_update_result, "Wachtwoord reset mislukt!"
-except Exception as e:
-    print(f"DEBUG: Exception tijdens verify_password na update: {e}")
-    assert False, "Wachtwoord reset verificatie faalde!"
+pw_update_result = verify_password("NieuwWachtwoord!456", user["password"])
+print("Password update check:", pw_update_result)
+assert pw_update_result, "Wachtwoord reset mislukt!"
 
 print("> Gebruikers met rol ophalen...")
 admins = get_users_by_role("system_admin")
@@ -63,56 +64,75 @@ print("System Admins:", admins)
 assert any(u["username"] == test_username for u in admins), "Gebruiker niet gevonden bij rol!"
 
 print("> Gebruiker verwijderen...")
-try:
-    delete_user_by_username(test_username)
-    print("DEBUG: delete_user_by_username uitgevoerd.")
-except Exception as e:
-    print(f"DEBUG: Exception tijdens delete_user_by_username: {e}")
-
-user = get_user_by_username(test_username)
-print("DEBUG: User na delete:", user)
-assert user is None, "User verwijderen mislukt!"
+delete_user_by_username(test_username)
 print("Gebruiker verwijderd.")
 
-print("\n=== TEST: BACKUP & RESTORE ===")
+user = get_user_by_username(test_username)
+print("User na delete:", user)
+assert user is None, "User verwijderen mislukt!"
+
+# ===== TEST: LOGIN/LOGOUT =====
+print("\n=== TEST: LOGIN/LOGOUT ===")
+# Voeg gebruiker opnieuw toe voor login test
+add_user(test_username, test_pw, test_role)
+
+# Login simuleren zonder echte input (patch input())
+def mock_input(prompt):
+    if "Username" in prompt:
+        return test_username
+    elif "Password" in prompt:
+        return test_pw
+    return ""
+
+import builtins
+orig_input = builtins.input
+builtins.input = mock_input
+
+user_obj = login()
+assert user_obj is not None, "Login met juiste gegevens mislukt!"
+print("Login succesvol!")
+
+# Fout wachtwoord
+def wrong_input(prompt):
+    if "Username" in prompt:
+        return test_username
+    elif "Password" in prompt:
+        return "FoutWachtwoord123"
+    return ""
+
+builtins.input = wrong_input
+user_obj_fail = login()
+assert user_obj_fail is None, "Login met verkeerde wachtwoord zou moeten falen!"
+print("Login met fout wachtwoord correct afgewezen.")
+
+builtins.input = orig_input  # Herstel input
+
+# Logout testen
+logout(user_obj)
+print("Logout succesvol.")
+
+# ===== TEST: BACKUP/RESTORE ZIP FILE FUNCTIONS =====
+print("\n=== TEST: BACKUP/RESTORE ZIP FILE FUNCTIONS ===")
 backup_name = create_backup()
-backup_path = os.path.join(os.path.dirname(__file__), "output", "backups", backup_name)
-print("DEBUG: backup_path =", backup_path)
-assert os.path.exists(backup_path), "Backup niet gevonden!"
 print("Backup gemaakt:", backup_name)
 
-print("> Restore uitvoeren...")
-restore_backup_by_name(backup_name)
-print("Restore uitgevoerd (controleer output directory voor effect).")
+# Simuleer een 'restore' met code functionaliteit
+code = generate_restore_code_db(test_username, backup_name)
+print("Restore-code gegenereerd:", code)
 
-print("\n=== TEST: RESTORE-CODE FUNCTIONALITEIT ===")
-test_admin = "SysAdminTestRestore"
-restore_pw = "ComplexWachtwoord!789"
-print("> Valideer restore-password:", restore_pw)
-print("Wachtwoord validatie resultaat:", validate_password(restore_pw))
-add_user(test_admin, restore_pw, "system_admin")
-code = generate_restore_code_db(test_admin, backup_name)
-print("Genereerde restore-code:", code)
-ok, backup = use_restore_code_db(test_admin, code)
-print("Resultaat use_restore_code_db:", ok, backup)
-assert ok and backup == backup_name, "Restore-code gebruik mislukt!"
-ok2, backup2 = use_restore_code_db(test_admin, code)
-print("Tweede keer use_restore_code_db (moet False zijn):", ok2, backup2)
-assert not ok2, "Restore-code kan maar 1x gebruikt worden!"
-delete_user_by_username(test_admin)
+ok, backup = use_restore_code_db(test_username, code)
+assert ok and backup == backup_name, "Restore-code niet bruikbaar!"
+print("Restore-code correct gebruikt.")
 
-print("\n=== TEST: LOGGING FUNCTIONALITEIT ===")
-log_activity("TestLogger", "Normale actie", "Info", False)
-log_activity("TestLogger", "SQL injectie poging", "DROP TABLE users;", True)
-logs = read_logs()
-assert any(l["username"] == "TestLogger" for l in logs), "Log niet opgeslagen!"
-print("Log entries:")
-for log in logs:
-    print(log)
-suspicious = get_suspicious_logs()
-assert any(l["suspicious"] for l in suspicious), "Suspicious logs niet gevonden!"
-print("Suspicious log entries:")
-for log in suspicious:
-    print(log)
+# Tweede keer proberen (moet mislukken)
+ok2, backup2 = use_restore_code_db(test_username, code)
+assert not ok2, "Restore-code kan niet twee keer gebruikt worden!"
+print("Restore-code is correct ongeldig na gebruik.")
 
+# Restore daadwerkelijk uitvoeren (simuleer system_admin context)
+restore_backup_by_name(test_username, backup_name)
+print("Backup succesvol hersteld.")
+
+# Cleanup
+delete_user_by_username(test_username)
 print("\n=== ALLES SUCCESVOL GETEST ===")

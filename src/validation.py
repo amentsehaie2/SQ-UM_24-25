@@ -159,3 +159,16 @@ def validate_last_maint(date) -> bool:
         return True
     except ValueError:
         return False
+
+def validate_password(password):
+    if not (12 <= len(password) <= 30):
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"[0-9]", password):
+        return False
+    if not re.search(r"[~!@#$%&_\-+=`|\\(){}\[\]:;'<>,.?/]", password):
+        return False
+    return True
