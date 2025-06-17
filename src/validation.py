@@ -1,15 +1,50 @@
 import re  
 from datetime import datetime
 
-def validate_fname(first_name) -> bool:  
+def validate_password(password) -> bool:
+    """
+    Validates if the password:
+    - has a length of at least 12 and at most 30 characters,
+    - contains only allowed characters,
+    - contains at least one lowercase letter, one uppercase letter, one digit, and one special character.
+    """
+    if not isinstance(password, str):
+        return False
+    if not (12 <= len(password) <= 30):
+        return False
+    allowed_specials = r"~!@#$%&_\-\+=`|\(\)\{\}\[\]:;'<>,\.?/"
+    pattern = rf"^[A-Za-z0-9{re.escape(allowed_specials)}]+$"
+    if not re.fullmatch(pattern, password):
+        return False
+    if not re.search(r'[a-z]', password):
+        return False
+    if not re.search(r'[A-Z]', password):
+        return False
+    if not re.search(r'\d', password):
+        return False
+    if not re.search(r'[~!@#$%&_\-\+=`|\(\)\{\}\[\]:;\'<>,\.?/]', password):
+        return False
+    return True
+
+def validate_fname(first_name) -> bool:
+    """
+    Validates if the first name is a string of 1 to 19 alphabetic characters.
+    """
+    if not isinstance(first_name, str):
+        return False
     return bool(re.fullmatch(r'^[A-Za-z]{1,19}$', first_name))
 
 def validate_lname(last_name) -> bool:
-    return bool(re.fullmatch(r'^[A-ZZa-z]{1,19}$', last_name))
+    """
+    Validates if the last name is a string of 1 to 19 alphabetic characters.
+    """
+    if not isinstance(last_name, str):
+        return False
+    return bool(re.fullmatch(r'^[A-Za-z]{1,19}$', last_name))
 
 def validate_birth_date(birth_date) -> bool:
     """
-    Validates if the birth_date is a string in the ISO 8601 format 'YYYY-MM-DD'.
+    Validates if the birth date is a string in the ISO 8601 format 'YYYY-MM-DD'.
     Example: '2000-01-01'
     """
     if not isinstance(birth_date, str) or not birth_date.strip():
@@ -46,7 +81,20 @@ def validate_email(email) -> bool:
     return bool(re.fullmatch(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email))
 
 def validate_username(username) -> bool:
-    return bool(re.fullmatch(r'^[a-zA-Z0-9_]{3,20}$', username))
+    """
+    Validates if the username:
+    - has a length of 8 to 10 characters,
+    - starts with a letter or underscore,
+    - contains only letters, numbers, underscores, apostrophes, and periods,
+    - is case-insensitive (validation does not distinguish case).
+    """
+    if not isinstance(username, str):
+        return False
+    username = username.strip()
+    if not (8 <= len(username) <= 10):
+        return False
+    pattern = r'^[A-Za-z_][A-Za-z0-9_\'\.]{7,9}$'
+    return bool(re.fullmatch(pattern, username))
 
 def validate_street_name(street_name) -> bool:
     if not isinstance(street_name, str) or not street_name.strip():
