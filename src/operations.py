@@ -5,31 +5,98 @@ import secrets
 from datetime import datetime
 from validation import (
     validate_zip, validate_phone, validate_fname, validate_lname, validate_house_number,
-    validate_email, validate_username, validate_street_name, validate_license_number, validate_city
+    validate_email, validate_username, validate_street_name, validate_license_number, validate_city,
+    validate_birth_date, validate_gender, validate_brand, validate_model, validate_serial_number,
+    validate_target_range, validate_top_speed, validate_battery_capacity, validate_SoC, validate_location,
+    validate_OoS, validate_mileage, validate_last_maint
 )
 from encryption import encrypt_data, decrypt_data
 import bcrypt
 from logger import log_activity, print_logs
 
 # Use the same DB path logic as database.py
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
-DB_PATH = os.path.join(OUTPUT_DIR, "urban_mobility.db")
-BACKUP_DIR = os.path.join(PROJECT_ROOT, "backup")
-RESTORE_CODE_FILE = os.path.join(OUTPUT_DIR, "restore_code.txt")
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_SRC_DIR)
+_OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
+DATABASE_NAME = os.path.join(_OUTPUT_DIR, "urban_mobility.db")
+BACKUP_DIR = os.path.join(_PROJECT_ROOT, "backup")
+RESTORE_CODE_FILE = os.path.join(_OUTPUT_DIR, "restore_code.txt")
 
 def get_db_connection():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    return sqlite3.connect(DB_PATH)
+    os.makedirs(_OUTPUT_DIR, exist_ok=True)
+    return sqlite3.connect(DATABASE_NAME)
 
 # === Traveller Operations ===
-def add_traveller(first_name, last_name, birth_date, gender, street_name, house_number, zip_code, city, email, phone_number, mobile_phone, license_number):
-    if not (validate_fname(first_name) and validate_lname(last_name) and validate_house_number(house_number)
-            and validate_zip(zip_code) and validate_email(email) and validate_phone(phone_number)
-            and validate_phone(mobile_phone) and validate_license_number(license_number) and validate_city(city)):
-        print("Validation failed for one or more fields.")
-        return False
+def add_traveller():
     conn = get_db_connection()
+    print("Enter traveller details:")
+
+    while True:
+        first_name = input("First name: ")
+        if validate_fname(first_name):
+            break
+        print("Invalid first name. Please try again.")
+
+    while True:
+        last_name = input("Last name: ")
+        if validate_lname(last_name):
+            break
+        print("Invalid last name. Please try again.")
+
+    while True:
+        birth_date = input("Birth date (YYYY-MM-DD): ")
+        if validate_birth_date(birth_date):
+            break
+        print("Invalid birth date. Please try again.")
+
+    while True:
+        gender = input("Gender: ")
+        if validate_gender(gender):
+            break
+        print("Invalid gender. Please try again.")
+
+    while True:
+        street_name = input("Street name: ")
+        if validate_street_name(street_name):
+            break
+        print("Invalid street name. Please try again.")
+
+    while True:
+        house_number = input("House number: ")
+        if validate_house_number(house_number):
+            break
+        print("Invalid house number. Please try again.")
+
+    while True:
+        zip_code = input("Zip code: ")
+        if validate_zip(zip_code):
+            break
+        print("Invalid zip code. Please try again.")
+
+    while True:
+        city = input("City: ")
+        if validate_city(city):
+            break
+        print("Invalid city. Please try again.")
+
+    while True:
+        email = input("Email: ")
+        if validate_email(email):
+            break
+        print("Invalid email. Please try again.")
+
+    while True:
+        mobile_phone = input("Mobile phone (8 digits): ")
+        if validate_phone(mobile_phone):
+            break
+        print("Invalid mobile phone number. Please try again.")
+
+    while True:
+        license_number = input("License number (XXDDDDDDD or XDDDDDDDD): ")
+        if validate_license_number(license_number):
+            break
+        print("Invalid license number. Please try again.")
+
     cursor = conn.cursor()
     registration_date = datetime.now()
     encrypted_first_name = encrypt_data(first_name)
@@ -81,14 +148,13 @@ def update_traveller(customer_id, **kwargs):
     allowed_fields = {
         "first_name": validate_fname,
         "last_name": validate_lname,
-        "birth_date": lambda x: True,
-        "gender": lambda x: True,
+        "birth_date": validate_birth_date,
+        "gender": validate_gender,
         "street_name": validate_street_name,
         "house_number": validate_house_number,
         "zip_code": validate_zip,
         "city": validate_city,
         "email": validate_email,
-        "phone_number": validate_phone,
         "mobile_phone": validate_phone,
         "license_number": validate_license_number
     }
@@ -123,17 +189,105 @@ def delete_traveller(customer_id):
     print("Traveller deleted.")
     return True
 
-
-
 # === Scooter Operations ===
-def add_scooter(brand, model, serial_number, top_speed, battery_capacity, state_of_charge, target_range, location, out_of_service, mileage, last_service_date):
+def add_scooter():
     conn = get_db_connection()
-    cursor = conn.cursor()
+    print("Enter scooter details:")
+
+    while True:
+        brand = input("Brand: ")
+        if validate_brand(brand):
+            break
+        print("Invalid brand. Please try again.")
+
+    while True:
+        model = input("Model: ")
+        if validate_model(model):
+            break
+        print("Invalid model. Please try again.")
+
+    while True:
+        serial_number = input("Serial number: ")
+        if validate_serial_number(serial_number):
+            break
+        print("Invalid serial number. Please try again.")
+
+    while True:
+        try:
+            top_speed = int(input("Top speed (integer): "))
+            if validate_top_speed(top_speed):
+                break
+            else:
+                print("Invalid top speed. Please enter a positive integer.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    while True:
+        try:
+            battery_capacity = int(input("Battery capacity (integer): "))
+            if validate_battery_capacity(battery_capacity):
+                break
+            else:
+                print("Invalid battery capacity. Please enter a positive integer.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    while True:
+        try:
+            state_of_charge = int(input("State of charge (0-100): "))
+            if validate_SoC(state_of_charge):
+                break
+            else:
+                print("Invalid state of charge. Please enter a value between 0 and 100.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    while True:
+        try:
+            target_range = int(input("Target range (integer): "))
+            if validate_target_range(target_range):
+                break
+            else:
+                print("Invalid target range. Please enter a positive integer.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    while True:
+        location = input("Location (latitude,longitude): ")
+        if validate_location(location):
+            break
+        print("Invalid location. Please try again.")
+
+    while True:
+        out_of_service_input = input("Out of service (True/False): ")
+        if out_of_service_input.lower() in {"true", "false"}:
+            out_of_service = out_of_service_input.lower() == "true"
+            if validate_OoS(out_of_service):
+                break
+        print("Invalid input. Please enter True or False.")
+
+    while True:
+        try:
+            mileage = int(input("Mileage (integer): "))
+            if validate_mileage(mileage):
+                break
+            else:
+                print("Invalid mileage. Please enter a non-negative integer.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    while True:
+        last_service_date = input("Last service date (YYYY-MM-DD): ")
+        if validate_last_maint(last_service_date):
+            break
+        print("Invalid date. Please use YYYY-MM-DD format.")
+
     encrypted_brand = encrypt_data(brand)
     encrypted_model = encrypt_data(model)
     encrypted_serial = encrypt_data(serial_number)
     encrypted_location = encrypt_data(location)
     try:
+        cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO scooters (brand, model, serial_number, top_speed, battery_capacity, state_of_charge, target_range, location, out_of_service, mileage, last_service_date)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
