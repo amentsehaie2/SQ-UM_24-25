@@ -78,6 +78,10 @@ def delete_logs():
     except Exception as e:
         print(f"Error deleting logs: {e}")
 
+def get_suspicious_logs():
+    """Geeft een lijst van alle verdachte logs."""
+    return [log for log in read_logs() if log.get("suspicious", False)]
+
 if __name__ == '__main__':
 
     # Adding logs

@@ -2,6 +2,8 @@ import sqlite3
 import os
 import shutil
 import secrets
+import bcrypt
+import uuid
 from datetime import datetime
 from validation import (
     validate_password, validate_zip, validate_phone, validate_fname, validate_lname, validate_house_number,
@@ -1364,36 +1366,115 @@ def reset_system_admin_password(): # WERKT VOLLEDIG
 # === Backup Functions ===
 def make_backup(): #jayden
     os.makedirs(BACKUP_DIR, exist_ok=True)
-    backup_file = os.path.join(BACKUP_DIR, f"urban_mobility_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db")
-    shutil.copy2(DB_PATH, backup_file)
-    print(f"Backup created at {backup_file}")
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_name = f"urban_mobility_backup_{timestamp}.zip"
+    backup_path = os.path.join(BACKUP_DIR, backup_name)
+    shutil.make_archive(backup_path.replace(".zip", ""), 'zip', _OUTPUT_DIR)
+    log_activity("system", f"Backup gemaakt: {backup_name}", suspicious=False)
+    print(f"Backup gemaakt: {backup_name}")
+    return backup_name
 
-def restore_backup(): #jayden
-    backups = sorted(os.listdir(BACKUP_DIR))
-    if not backups:
-        print("No backup available.")
+def restore_backup_by_name(current_user, backup_name):
+    """Restore zip-backup, alleen voor System Admin via restore-code."""
+    backup_path = os.path.join(BACKUP_DIR, backup_name)
+    if not os.path.exists(backup_path):
+        print("Backup niet gevonden!")
+        return False
+    # Verwijder bestaande .db bestanden
+    for file in os.listdir(_OUTPUT_DIR):
+        if file.endswith('.db'):
+            os.remove(os.path.join(_OUTPUT_DIR, file))
+    shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
+    log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
+    print(f"Backup '{backup_name}' succesvol hersteld.")
+    return True
+
+# === Restore-code management ===
+def generate_restore_code_db(target_system_admin, backup_name):
+    """Genereert een restore-code, gekoppeld aan een System Admin en een specifieke backup."""
+    code = str(uuid.uuid4())
+    os.makedirs(_OUTPUT_DIR, exist_ok=True)
+    with open(RESTORE_CODE_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
+    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin} backup: {backup_name}", suspicious=False)
+    print(f"Restore-code voor {target_system_admin}: {code}")
+    return code
+
+def use_restore_code_db(current_username, code):
+    """
+    Valideert een restore-code, koppelt aan de juiste System Admin & backup,
+    markeert de code als gebruikt. Returnt (True, backup_name) bij succes, anders (False, None).
+    """
+    lines = []
+    found = False
+    backup_name = None
+    if not os.path.exists(RESTORE_CODE_FILE):
+        return False, None
+    with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
+        for line in lines:
+            code_line, sysadmin, backup, used = line.strip().split("|")
+            if code_line == code and sysadmin == current_username and used == "unused":
+                found = True
+                backup_name = backup
+                f.write(f"{code}|{sysadmin}|{backup}|used\n")
+            else:
+                f.write(line)
+    return found, backup_name
+
+def revoke_restore_code_db(code):
+    if not os.path.exists(RESTORE_CODE_FILE):
+        print("Restore-codes-bestand niet gevonden!")
         return
-    print("Available backups:")
-    for i, f in enumerate(backups):
-        print(f"[{i}] {f}")
-    idx = int(input("Choose backup number to restore: "))
-    backup_file = os.path.join(BACKUP_DIR, backups[idx])
-    shutil.copy2(backup_file, DB_PATH)
-    print("Backup restored.")
+    lines = []
+    with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
+        for line in lines:
+            code_line, sysadmin, backup, used = line.strip().split("|")
+            if code_line == code and used == "unused":
+                f.write(f"{code}|{sysadmin}|{backup}|revoked\n")
+            else:
+                f.write(line)
+    print(f"Restore-code '{code}' ingetrokken.")
+    log_activity("super_admin", f"Restore-code revoked: {code}", suspicious=True)
 
-def generate_restore_code(): #jayden
-    code = secrets.token_urlsafe(16)
-    with open(RESTORE_CODE_FILE, "w") as f:
-        f.write(code)
-    print(f"Restore code generated and saved.")
+# === Operationele wrappers voor menu (met rol-check!) ===
 
-def revoke_restore_code(): #jayden
-    if os.path.exists(RESTORE_CODE_FILE):
-        os.remove(RESTORE_CODE_FILE)
-        print("Restore code revoked.")
-    else:
-        print("No restore code to revoke.")
+def make_backup(current_user):
+    if current_user["role"] not in ["super_admin", "system_admin"]:
+        print("Permission denied: Alleen Super Admin/System Admin mag backups maken!")
+        return
+    backup_name = create_backup()
+    print(f"Backup gemaakt: {backup_name}")
 
+def generate_restore_code(current_user):
+    if current_user["role"] != "super_admin":
+        print("Permission denied: Alleen Super Admin mag restore-codes genereren!")
+        return
+    sysadmin = input("Voor welke System Admin? Username: ").strip()
+    backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
+    generate_restore_code_db(sysadmin, backup_name)
+
+def restore_backup(current_user):
+    if current_user["role"] != "system_admin":
+        print("Alleen System Admin mag een restore uitvoeren!")
+        return
+    code = input("Voer restore-code in: ").strip()
+    ok, backup_name = use_restore_code_db(current_user["username"], code)
+    if not ok:
+        log_activity(current_user["username"], f"Restore attempt FAILED met code {code}", suspicious=True)
+        print("Restore-code ongeldig of niet voor deze gebruiker!")
+        return
+    restore_backup_by_name(current_user["username"], backup_name)
+
+def revoke_restore_code(current_user):
+    if current_user["role"] != "super_admin":
+        print("Alleen Super Admin mag restore-codes intrekken!")
+        return
+    code = input("Welke restore-code intrekken? ").strip()
+    revoke_restore_code_db(code)
 
 if __name__ == "__main__":
 
