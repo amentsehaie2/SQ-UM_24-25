@@ -23,6 +23,9 @@ def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), salt)
 
 def verify_password(password, hashed_password):
+    # Zorg dat hashed_password bytes is, zodat bcrypt.checkpw altijd werkt
+    if isinstance(hashed_password, str):
+        hashed_password = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
 
 def log_action(username, description, suspicious=False):

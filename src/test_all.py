@@ -30,7 +30,7 @@ from operations import (
 
 print("=== TEST: USER CRUD ===")
 test_username = "JaydenTest"
-test_pw = "SterkWachtwoord!123"
+test_pw = "Leukewachtwoord123!"
 test_role = "system_admin"
 
 print("> Valideer wachtwoord:", test_pw)
@@ -136,3 +136,4 @@ print("Backup succesvol hersteld.")
 # Cleanup
 delete_user_by_username(test_username)
 print("\n=== ALLES SUCCESVOL GETEST ===")
+

@@ -1,10 +1,9 @@
 from auth import login, logout
 from operations import (
     add_traveller, update_traveller, delete_traveller, search_travellers,
-    add_scooter, update_scooter, delete_scooter, search_scooters,
-    list_users_and_roles, add_service_engineer, update_service_engineer_profile,
+    add_scooter, update_scooter, delete_scooter, search_scooters, add_service_engineer,
     delete_service_engineer, reset_service_engineer_password, view_system_logs,
-    add_system_admin, update_system_admin_profile, delete_system_admin,
+    add_system_admin, delete_system_admin,
     reset_system_admin_password, make_backup, restore_backup,
     generate_restore_code, revoke_restore_code, update_service_engineer_password,
     update_system_admin_password
