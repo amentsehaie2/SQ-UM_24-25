@@ -500,9 +500,27 @@ def update_scooter():
     return True
 
 def delete_scooter():
-    scooter_id = input("Enter the Scooter ID to delete: ")
+    scooter_id = input("Enter the Scooter ID to delete: ").strip()
+    if not scooter_id.isdigit():
+        print("Invalid Scooter ID format.")
+        return False
+
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Check if scooter exists
+    cursor.execute("SELECT 1 FROM scooters WHERE scooter_id=?", (scooter_id,))
+    if not cursor.fetchone():
+        print("Scooter ID does not exist.")
+        conn.close()
+        return False
+
+    confirm = input("Are you sure you want to delete this scooter? (yes/no): ").strip().lower()
+    if confirm != "yes":
+        print("Deletion cancelled.")
+        conn.close()
+        return False
+
     cursor.execute("DELETE FROM scooters WHERE scooter_id=?", (scooter_id,))
     conn.commit()
     conn.close()
@@ -530,20 +548,24 @@ def list_users(): #WERKT VOLLEDIG
 
 
 # === Service Engineer Functions === 
-def add_service_engineer():# WERKT VOLLEDIG
+def add_service_engineer(): # WERKT VOLLEDIG
     """Adds a new service engineer to the database."""
-    username = input("\nUsername: ")
+    print("\nAdd Service Engineer")
+    print("Username format: 8-10 alphanumeric characters or underscores.")
+    username = input("Username: ")
     if not validate_username(username):
         log_activity("system", f"Failed to add service engineer - invalid username format: {username}", suspicious=True)
         print("Invalid username format. Please use 8-10 alphanumeric characters or underscores.")
         return
 
+    print("First Name format: 1-19 alphabetic characters.")
     first_name = input("First Name: ")
     if not validate_fname(first_name):
         log_activity("system", f"Failed to add service engineer - invalid first name format: {first_name}", suspicious=True)
         print("Invalid first name format. Please use 1-19 alphabetic characters.")
         return
 
+    print("Last Name format: 1-19 alphabetic characters.")
     last_name = input("Last Name: ")
     if not validate_lname(last_name):
         log_activity("system", f"Failed to add service engineer - invalid last name format: {last_name}", suspicious=True)
@@ -566,10 +588,11 @@ def add_service_engineer():# WERKT VOLLEDIG
         conn.close()
         return
 
+    print("Password format: 12-30 characters, at least one uppercase, one lowercase, and one special character.")
     password = input("Password: ")
     if not validate_password(password):
         log_activity("system", f"Failed to add service engineer - invalid password format: {password}", suspicious=True)
-        print("Invalid password format. Please use 8-20 alphanumeric characters.")
+        print("Invalid password format. Please use 12-30 characters, at least one uppercase, one lowercase, and one special character.")
         return
     encrypted_username = encrypt_data(username)
     encrypted_role = encrypt_data("engineer")
@@ -579,7 +602,7 @@ def add_service_engineer():# WERKT VOLLEDIG
 
     try:
         cursor.execute("INSERT INTO users (username, first_name, last_name, password, role, registration_date) VALUES (?, ?, ?, ?, ?, ?)",
-                       (encrypted_username,encrypt_fname, encrypt_lname, hashed_password, encrypted_role, datetime.now().isoformat()))
+                       (encrypted_username, encrypt_fname, encrypt_lname, hashed_password, encrypted_role, datetime.now().isoformat()))
         conn.commit()
         
         if cursor.rowcount > 0:
@@ -1679,10 +1702,10 @@ if __name__ == "__main__":
     # add_scooter()
     # delete_scooter()
     # update_scooter()
-    search_scooters()
+    # search_scooters()
 
 
-    # list_users()
+    list_users()
     # print_logs()
 
     ###SYSTEM ADMIN FUNCTIONS

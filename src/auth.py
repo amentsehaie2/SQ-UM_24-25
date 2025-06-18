@@ -12,7 +12,7 @@ except ImportError:
     from encryption import decrypt_data
 
 try:
-    from src.validation import validate_username, validate_password
+    from validation import validate_username, validate_password
 except ImportError:
     from validation import validate_username, validate_password
 

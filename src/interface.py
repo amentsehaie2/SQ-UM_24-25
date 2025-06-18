@@ -8,6 +8,7 @@ from operations import (
     generate_restore_code, revoke_restore_code, update_service_engineer_password,
     update_system_admin_password, list_users
 )
+from logger import print_logs, delete_logs, get_suspicious_logs
 
 def main():
     while True:
@@ -55,12 +56,12 @@ def user_management_menu():
         print("1. List users")
         print("2. Add Service Engineer")
         print("3. Update Service Engineer username")
-        print("4. Delete Service Engineer")
-        print("5. Update Service Engineer password")
+        print("4. Update Service Engineer password")
+        print("5. Delete Service Engineer")
         print("6. Add System Administrator")
         print("7. Update System Administrator username")
-        print("8. Delete System Administrator")
-        print("9. Update System Administrator password")
+        print("8. Update System Administrator password")
+        print("9. Delete System Administrator")
         print("10. Terug")
         choice = input("Select an option (1-10): ")
 
@@ -145,7 +146,7 @@ def system_admin_menu():
         choice = input("Select an option (1-6): ")
 
         if choice == "1":
-            view_system_logs()
+            print_logs()
         elif choice == "2":
             make_backup()
         elif choice == "3":
@@ -176,11 +177,11 @@ def service_engineer_menu():
         elif choice == "2":
             add_service_engineer()
         elif choice == "3":
-            update_service_engineer_profile()
+            update_service_engineer_username()
         elif choice == "4":
-            delete_service_engineer()
-        elif choice == "5":
             reset_service_engineer_password()
+        elif choice == "5":
+            delete_service_engineer()
         elif choice == "6":
             print("Logging out...")
             break
