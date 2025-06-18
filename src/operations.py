@@ -371,16 +371,23 @@ def delete_scooter(scooter_id):
 def list_users(): #WERKT VOLLEDIG   
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, password, role, registration_date FROM users")
+    cursor.execute("SELECT id, username, first_name, last_name, password, role, registration_date FROM users")
     users = cursor.fetchall()
     print("\nUsers:")
     for user in users:
-        print(f"ID: {user[0]}  |  Username: {decrypt_data(user[1])}  |  Password: [Hidden]  |  Role: {decrypt_data(user[3])}  |  Registration Date: {user[4]}")
+        try:
+            username = decrypt_data(user[1]) if user[1] else "N/A"
+            first_name = decrypt_data(user[2]) if user[2] else "N/A"
+            last_name = decrypt_data(user[3]) if user[3] else "N/A"
+            role = decrypt_data(user[5]) if user[5] else "N/A"
+            
+            print(f"ID: {user[0]}  |  Username: {username}  |  First Name: {first_name}  |  Last Name: {last_name}  |  Password: [Hidden]  |  Role: {role}  |  Registration Date: {user[6]}")
+        except Exception as e:
+            print(f"ID: {user[0]}  |  Error decrypting user data: {str(e)}")
     conn.close()
 
 
-
-# === Service Engineer Functions ===
+# === Service Engineer Functions === 
 def add_service_engineer():# WERKT VOLLEDIG
     """Adds a new service engineer to the database."""
     username = input("\nUsername: ")
@@ -389,6 +396,18 @@ def add_service_engineer():# WERKT VOLLEDIG
         print("Invalid username format. Please use 3-20 alphanumeric characters or underscores.")
         return
 
+    first_name = input("First Name: ")
+    if not validate_fname(first_name):
+        log_activity("system", f"Failed to add service engineer - invalid first name format: {first_name}", suspicious=True)
+        print("Invalid first name format. Please use 1-19 alphabetic characters.")
+        return
+
+    last_name = input("Last Name: ")
+    if not validate_lname(last_name):
+        log_activity("system", f"Failed to add service engineer - invalid last name format: {last_name}", suspicious=True)
+        print("Invalid last name format. Please use 1-19 alphabetic characters.")
+        return
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, username FROM users")
@@ -412,11 +431,13 @@ def add_service_engineer():# WERKT VOLLEDIG
         return
     encrypted_username = encrypt_data(username)
     encrypted_role = encrypt_data("engineer")
+    encrypt_fname = encrypt_data(first_name)
+    encrypt_lname = encrypt_data(last_name)
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
     try:
-        cursor.execute("INSERT INTO users (username, password, role, registration_date) VALUES (?, ?, ?, ?)",
-                       (encrypted_username, hashed_password, encrypted_role, datetime.now().isoformat()))
+        cursor.execute("INSERT INTO users (username, first_name, last_name, password, role, registration_date) VALUES (?, ?, ?, ?, ?, ?)",
+                       (encrypted_username,encrypt_fname, encrypt_lname, hashed_password, encrypted_role, datetime.now().isoformat()))
         conn.commit()
         
         if cursor.rowcount > 0:
@@ -595,6 +616,125 @@ def update_service_engineer_password(): # WERKT VOLLEDIG
         print(f"An unexpected error occurred: {str(e)}")
     finally:
         conn.close()
+
+def update_fname_service_engineer(): # WERKT VOLLEDIG
+    """Updates the first name of a service engineer."""
+    try:
+        user_id = int(input("Enter the ID of the service engineer you want to update: "))
+    except ValueError:
+        log_activity("system", "Failed to update service engineer first name - invalid ID format", suspicious=True)
+        print("Invalid ID format. Please enter a number.")
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT username, role FROM users WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            log_activity("system", f"Failed to update service engineer first name - user ID {user_id} not found")
+            print("User with that ID not found.")
+            conn.close()
+            return
+
+        current_username_encrypted = result[0]
+        current_username = decrypt_data(current_username_encrypted)
+        user_role_encrypted = result[1]
+        user_role = decrypt_data(user_role_encrypted)
+
+        if user_role != "engineer":
+            log_activity("system", f"Failed to update first name - user ID {user_id} is not a service engineer", suspicious=True)
+            print("User with that ID is not a Service Engineer.")
+            conn.close()
+            return
+
+        new_fname = input("Enter the new first name: ")
+        if not validate_fname(new_fname):
+            log_activity("system", f"Failed to update service engineer first name - invalid format: {new_fname}", suspicious=True)
+            print("Invalid first name format. Please use 1-19 alphabetic characters.")
+            conn.close()
+            return
+
+        cursor.execute("UPDATE users SET first_name = ? WHERE id = ?", (encrypt_data(new_fname), user_id))
+        conn.commit()
+        
+        if cursor.rowcount > 0:
+            log_activity("system", f"Successfully updated service engineer first name for user {current_username} (ID: {user_id})")
+            print("First name updated successfully.")
+        else:
+            log_activity("system", f"Failed to update service engineer first name - no rows affected for ID {user_id}", suspicious=True)
+            print("Failed to update first name - no changes made to database.")
+            
+    except sqlite3.Error as e:
+        log_activity("system", f"Failed to update service engineer first name - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"Database error occurred: {str(e)}")
+    except Exception as e:
+        log_activity("system", f"Failed to update service engineer first name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"An unexpected error occurred: {str(e)}")
+    finally:
+        conn.close()
+
+def update_lname_service_engineer(): # WERKT VOLLEDIG
+    """Updates the last name of a service engineer."""
+    try:
+        user_id = int(input("Enter the ID of the service engineer you want to update: "))
+    except ValueError:
+        log_activity("system", "Failed to update service engineer last name - invalid ID format", suspicious=True)
+        print("Invalid ID format. Please enter a number.")
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT username, role FROM users WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            log_activity("system", f"Failed to update service engineer last name - user ID {user_id} not found")
+            print("User with that ID not found.")
+            conn.close()
+            return
+
+        current_username_encrypted = result[0]
+        current_username = decrypt_data(current_username_encrypted)
+        user_role_encrypted = result[1]
+        user_role = decrypt_data(user_role_encrypted)    
+
+        if user_role != "engineer":
+            log_activity("system", f"Failed to update last name - user ID {user_id} is not a service engineer", suspicious=True)
+            print("User with that ID is not a Service Engineer.")
+            conn.close()
+            return
+
+        new_lname = input("Enter the new last name: ")
+        if not validate_lname(new_lname):
+            log_activity("system", f"Failed to update service engineer last name - invalid format: {new_lname}", suspicious=True)
+            print("Invalid last name format. Please use 1-19 alphabetic characters.")
+            conn.close()
+            return
+
+        cursor.execute("UPDATE users SET last_name = ? WHERE id = ?", (encrypt_data(new_lname), user_id))
+        conn.commit()
+        
+        if cursor.rowcount > 0:
+            log_activity("system", f"Successfully updated service engineer last name for user {current_username} (ID: {user_id})")
+            print("Last name updated successfully.")
+        else:
+            log_activity("system", f"Failed to update service engineer last name - no rows affected for ID {user_id}", suspicious=True)
+            print("Failed to update last name - no changes made to database.")
+            
+    except sqlite3.Error as e:
+        log_activity("system", f"Failed to update service engineer last name - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"Database error occurred: {str(e)}")
+    except Exception as e:
+        log_activity("system", f"Failed to update service engineer last name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"An unexpected error occurred: {str(e)}")
+    finally:
+        conn.close()
+
 def delete_service_engineer(): # WERKT VOLLEDIG
     """Deletes a service engineer by their ID."""
     try:
@@ -720,13 +860,25 @@ def reset_service_engineer_password(): # WERKT VOLLEDIG
 
 
 
-# === System Admin Functions ===
+# === System Admin Functions === 
 def add_system_admin(): # WERKT VOLLEDIG
     """Adds a new system administrator to the database."""
     username = input("Username: ")
     if not validate_username(username):
         log_activity("system", f"Failed to add system admin - invalid username format: {username}", suspicious=True)
         print("Invalid username format. Please use 8-10 alphanumeric characters.")
+        return
+    
+    first_name = input("First Name: ")
+    if not validate_fname(first_name):
+        log_activity("system", f"Failed to add system admin - invalid first name format: {first_name}", suspicious=True)
+        print("Invalid first name format. Please use 1-19 alphabetic characters.")
+        return
+        
+    last_name = input("Last Name: ")
+    if not validate_lname(last_name):
+        log_activity("system", f"Failed to add system admin - invalid last name format: {last_name}", suspicious=True)
+        print("Invalid last name format. Please use 1-19 alphabetic characters.")
         return
 
     conn = get_db_connection()
@@ -751,12 +903,14 @@ def add_system_admin(): # WERKT VOLLEDIG
         print("Invalid password format. Please use 12-30 alphanumeric characters, with at least one uppercase letter, one lowercase letter, and one special character.")
         return
     encrypted_username = encrypt_data(username)
+    encrypted_fname = encrypt_data(first_name)
+    encrypted_lname = encrypt_data(last_name)
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     encrypted_role = encrypt_data("admin")
 
     try:
-        cursor.execute("INSERT INTO users (username, password, role, registration_date) VALUES (?, ?, ?, ?)",
-                       (encrypted_username, hashed_password, encrypted_role, datetime.now().isoformat()))
+        cursor.execute("INSERT INTO users (username, first_name, last_name, password, role, registration_date) VALUES (?, ?, ?, ?, ?, ?)",
+                       (encrypted_username, encrypted_fname, encrypted_lname, hashed_password, encrypted_role, datetime.now().isoformat()))
         conn.commit()
         
         if cursor.rowcount > 0:
@@ -940,6 +1094,112 @@ def update_system_admin_password(): # WERKT VOLLEDIG
     finally:
         conn.close()
 
+def update_fname_system_admin(): # WERKT VOLLEDIG
+    """Updates the first name of a system administrator."""
+    try:
+        user_id = int(input("Enter the ID of the system administrator you want to update: "))
+    except ValueError:
+        log_activity("system", "Failed to update system admin first name - invalid ID format", suspicious=True)
+        print("Invalid ID format. Please enter a number.")
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT username, role FROM users WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            log_activity("system", f"Failed to update system admin first name - user ID {user_id} not found", suspicious=True)
+            print("User with that ID not found.")
+            conn.close()
+            return
+
+        current_username_encrypted = result[0]
+        current_username = decrypt_data(current_username_encrypted)
+        user_role_encrypted = result[1]
+        user_role = decrypt_data(user_role_encrypted)
+
+        if user_role != "admin":
+            log_activity("system", f"Failed to update system admin first name - user ID {user_id} is not a system administrator", suspicious=True)
+            print("User with that ID is not a System Administrator.")
+            conn.close()
+            return
+
+        new_fname = input("Enter the new first name: ")
+        cursor.execute("UPDATE users SET first_name = ? WHERE id = ?", (encrypt_data(new_fname), user_id))
+        conn.commit()
+        
+        if cursor.rowcount > 0:
+            log_activity("system", f"Successfully updated system admin first name for user {current_username} (ID: {user_id})")
+            print("First name updated successfully.")
+        else:
+            log_activity("system", f"Failed to update system admin first name - no rows affected for ID {user_id}", suspicious=True)
+            print("Failed to update first name - no changes made to database.")
+            
+    except sqlite3.Error as e:
+        log_activity("system", f"Failed to update system admin first name - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"Database error occurred: {str(e)}")
+    except Exception as e:
+        log_activity("system", f"Failed to update system admin first name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"An unexpected error occurred: {str(e)}")
+    finally:
+        conn.close()
+
+def update_lname_system_admin(): # WERKT VOLLEDIG
+    """Updates the last name of a system administrator."""
+    try:
+        user_id = int(input("Enter the ID of the system administrator you want to update: "))
+    except ValueError:
+        log_activity("system", "Failed to update system admin last name - invalid ID format", suspicious=True)
+        print("Invalid ID format. Please enter a number.")
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("SELECT username, role FROM users WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            log_activity("system", f"Failed to update system admin last name - user ID {user_id} not found", suspicious=True)
+            print("User with that ID not found.")
+            conn.close()
+            return
+
+        current_username_encrypted = result[0]
+        current_username = decrypt_data(current_username_encrypted)
+        user_role_encrypted = result[1]
+        user_role = decrypt_data(user_role_encrypted)
+
+        if user_role != "admin":
+            log_activity("system", f"Failed to update system admin last name - user ID {user_id} is not a system administrator", suspicious=True)
+            print("User with that ID is not a System Administrator.")
+            conn.close()
+            return
+
+        new_lname = input("Enter the new last name: ")
+        cursor.execute("UPDATE users SET last_name = ? WHERE id = ?", (encrypt_data(new_lname), user_id))
+        conn.commit()
+        
+        if cursor.rowcount > 0:
+            log_activity("system", f"Successfully updated system admin last name for user {current_username} (ID: {user_id})")
+            print("Last name updated successfully.")
+        else:
+            log_activity("system", f"Failed to update system admin last name - no rows affected for ID {user_id}", suspicious=True)
+            print("Failed to update last name - no changes made to database.")
+            
+    except sqlite3.Error as e:
+        log_activity("system", f"Failed to update system admin last name - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"Database error occurred: {str(e)}")
+    except Exception as e:
+        log_activity("system", f"Failed to update system admin last name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"An unexpected error occurred: {str(e)}")
+    finally:
+        conn.close()
+
 def delete_system_admin(): # WERKT VOLLEDIG
     """Deletes a system administrator."""
     try:
@@ -1114,13 +1374,15 @@ if __name__ == "__main__":
     # search_vehicles("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "12345", "City", "8Fg6y@example.com", "1234567890", "1234567890", "1234567890")
 
 
-    # list_users()
-    print_logs()
+    list_users()
+    # print_logs()
 
     ###SYSTEM ADMIN FUNCTIONS
     # add_system_admin()
     # update_system_admin_username()
-    # update_system_admin_password()   
+    # update_system_admin_password()  
+    # update_fname_system_admin()
+    # update_lname_system_admin() 
     # delete_system_admin()
     # reset_system_admin_password()
 
@@ -1129,5 +1391,7 @@ if __name__ == "__main__":
     # add_service_engineer()
     # update_service_engineer_username()
     # update_service_engineer_password()
+    # update_fname_service_engineer()
+    # update_lname_service_engineer()
     # delete_service_engineer()
     # reset_service_engineer_password()

@@ -39,6 +39,8 @@ def initialize_db():
         CREATE TABLE IF NOT EXISTS users (  
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL, -- Encrypted
+            first_name TEXT,               -- Encrypt
+            last_name TEXT,                -- Encrypt
             password TEXT NOT NULL,        -- Hashed
             role TEXT,                     -- Encrypted
             registration_date DATETIME  
