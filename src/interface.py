@@ -2,11 +2,11 @@ from auth import login, logout
 from operations import (
     add_traveller, update_traveller, delete_traveller, search_travellers,
     add_scooter, update_scooter, delete_scooter, search_scooters, add_service_engineer,
-    delete_service_engineer, reset_service_engineer_password, view_system_logs,
+    delete_service_engineer, reset_service_engineer_password, update_service_engineer_username,
     add_system_admin, delete_system_admin,
-    reset_system_admin_password, make_backup, restore_backup,
+    update_system_admin_username, make_backup, restore_backup,
     generate_restore_code, revoke_restore_code, update_service_engineer_password,
-    update_system_admin_password
+    update_system_admin_password, list_users
 )
 
 def main():
@@ -52,24 +52,24 @@ def super_admin_menu():
 def user_management_menu():
     while True:
         print("\n--- User Management ---")
-        print("1. List users and roles")
+        print("1. List users")
         print("2. Add Service Engineer")
-        print("3. Update Service Engineer profile")
+        print("3. Update Service Engineer username")
         print("4. Delete Service Engineer")
         print("5. Update Service Engineer password")
         print("6. Add System Administrator")
-        print("7. Update System Administrator profile")
+        print("7. Update System Administrator username")
         print("8. Delete System Administrator")
         print("9. Update System Administrator password")
         print("10. Terug")
         choice = input("Select an option (1-10): ")
 
         if choice == "1":
-            list_users_and_roles()
+            list_users()
         elif choice == "2":
             add_service_engineer()
         elif choice == "3":
-            update_service_engineer_profile()
+            update_service_engineer_username()
         elif choice == "4":
             delete_service_engineer()
         elif choice == "5":
@@ -77,7 +77,7 @@ def user_management_menu():
         elif choice == "6":
             add_system_admin()
         elif choice == "7":
-            update_system_admin_profile()
+            update_system_admin_username()
         elif choice == "8":
             delete_system_admin()
         elif choice == "9":
@@ -98,46 +98,13 @@ def traveller_management_menu():
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
-            first_name = input("First name: ")
-            last_name = input("Last name: ")
-            birth_date = input("Birth date (YYYY-MM-DD): ")
-            gender = input("Gender: ")
-            street_name = input("Street name: ")
-            house_number = input("House number: ")
-            zip_code = input("Zip code: ")
-            city = input("City: ")
-            email = input("Email: ")
-            phone_number = input("Phone number: ")
-            mobile_phone = input("Mobile phone: ")
-            license_number = input("License number: ")
-            add_traveller(
-                first_name, last_name, birth_date, gender, street_name, house_number,
-                zip_code, city, email, phone_number, mobile_phone, license_number
-            )
+            add_traveller()
         elif choice == "2":
-            customer_id = input("Traveller ID to update: ")
-            print("Leave fields blank to skip updating them.")
-            fields = {}
-            for field in [
-                "first_name", "last_name", "birth_date", "gender", "street_name",
-                "house_number", "zip_code", "city", "email", "phone_number",
-                "mobile_phone", "license_number"
-            ]:
-                value = input(f"{field.replace('_', ' ').capitalize()}: ")
-                if value.strip():
-                    fields[field] = value
-            if fields:
-                update_traveller(customer_id, **fields)
-            else:
-                print("No fields to update.")
+            update_traveller()
         elif choice == "3":
-            customer_id = input("Traveller ID to delete: ")
-            delete_traveller(customer_id)
+            delete_traveller()
         elif choice == "4":
-            key = input("Search key (first or last name): ")
-            results = search_travellers(key)
-            for row in results:
-                print(row)
+            search_travellers()
         elif choice == "5":
             break
         else:
@@ -154,46 +121,13 @@ def scooter_management_menu():
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
-            brand = input("Brand: ")
-            model = input("Model: ")
-            serial_number = input("Serial number: ")
-            top_speed = input("Top speed: ")
-            battery_capacity = input("Battery capacity: ")
-            state_of_charge = input("State of charge: ")
-            target_range = input("Target range: ")
-            location = input("Location: ")
-            out_of_service = input("Out of service (True/False): ")
-            mileage = input("Mileage: ")
-            last_service_date = input("Last service date (YYYY-MM-DD): ")
-            add_scooter(
-                brand, model, serial_number, top_speed, battery_capacity,
-                state_of_charge, target_range, location, out_of_service,
-                mileage, last_service_date
-            )
+            add_scooter()
         elif choice == "2":
-            scooter_id = input("Scooter ID to update: ")
-            print("Leave fields blank to skip updating them.")
-            fields = {}
-            for field in [
-                "brand", "model", "serial_number", "top_speed", "battery_capacity",
-                "state_of_charge", "target_range", "location", "out_of_service",
-                "mileage", "last_service_date"
-            ]:
-                value = input(f"{field.replace('_', ' ').capitalize()}: ")
-                if value.strip():
-                    fields[field] = value
-            if fields:
-                update_scooter(scooter_id, **fields)
-            else:
-                print("No fields to update.")
+            update_scooter()
         elif choice == "3":
-            scooter_id = input("Scooter ID to delete: ")
-            delete_scooter(scooter_id)
+            delete_scooter()
         elif choice == "4":
-            key = input("Search key (brand, model, or serial number): ")
-            results = search_scooters(key)
-            for row in results:
-                print(row)
+            search_scooters()
         elif choice == "5":
             break
         else:
@@ -229,16 +163,16 @@ def system_admin_menu():
 def service_engineer_menu():
     while True:
         print("\n--- Service Engineer Management ---")
-        print("1. List users and roles")
+        print("1. List users")
         print("2. Add Service Engineer")
-        print("3. Update Service Engineer profile")
+        print("3. Update Service Engineer username")
         print("4. Delete Service Engineer")
         print("5. Reset Service Engineer password")
         print("6. Uitloggen")
         choice = input("Select an option (1-6): ")
 
         if choice == "1":
-            list_users_and_roles()
+            list_users()
         elif choice == "2":
             add_service_engineer()
         elif choice == "3":

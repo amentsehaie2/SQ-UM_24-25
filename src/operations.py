@@ -377,20 +377,53 @@ def search_scooters():
     key = input("Enter search key for scooters: ").strip().lower()
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT scooter_id, brand, model, serial_number, location FROM scooters")
+    cursor.execute("""
+        SELECT scooter_id, brand, model, serial_number, top_speed, battery_capacity, state_of_charge, 
+               target_range, location, out_of_service, mileage, last_service_date
+        FROM scooters
+    """)
     results = []
     for row in cursor.fetchall():
+        scooter_id = row[0]
         decrypted_brand = decrypt_data(row[1])
         decrypted_model = decrypt_data(row[2])
         decrypted_serial = decrypt_data(row[3])
-        decrypted_location = decrypt_data(row[4])
-        if (key in decrypted_brand.lower() or key in decrypted_model.lower() or key in decrypted_serial.lower()):
-            results.append((row[0], decrypted_brand, decrypted_model, decrypted_serial, decrypted_location))
+        top_speed = row[4]
+        battery_capacity = row[5]
+        state_of_charge = row[6]
+        target_range = row[7]
+        decrypted_location = decrypt_data(row[8])
+        out_of_service = row[9]
+        mileage = row[10]
+        last_service_date = row[11]
+        # Search in decrypted/encrypted fields as appropriate
+        if (
+            key in decrypted_brand.lower()
+            or key in decrypted_model.lower()
+            or key in decrypted_serial.lower()
+            or key in str(top_speed).lower()
+            or key in str(battery_capacity).lower()
+            or key in str(state_of_charge).lower()
+            or key in str(target_range).lower()
+            or key in decrypted_location.lower()
+            or key in str(out_of_service).lower()
+            or key in str(mileage).lower()
+            or (last_service_date and key in str(last_service_date).lower())
+        ):
+            results.append((
+                scooter_id, decrypted_brand, decrypted_model, decrypted_serial, top_speed,
+                battery_capacity, state_of_charge, target_range, decrypted_location,
+                out_of_service, mileage, last_service_date
+            ))
     conn.close()
     if results:
         print("Matching scooters:")
         for r in results:
-            print(f"ID: {r[0]}, Brand: {r[1]}, Model: {r[2]}, Serial: {r[3]}, Location: {r[4]}")
+            print(
+                f"ID: {r[0]}, Brand: {r[1]}, Model: {r[2]}, Serial: {r[3]}, Top Speed: {r[4]}, "
+                f"Battery: {r[5]}, SoC: {r[6]}, Range: {r[7]}, Location: {r[8]}, "
+                f"Out of Service: {r[9]}, Mileage: {r[10]}, Last Service: {r[11]}"
+            )
     else:
         print("No matching scooters found.")
     return results
@@ -889,22 +922,21 @@ def delete_service_engineer(): # WERKT VOLLEDIG
             conn.close()
             return
 
-        confirmation = input(f"Are you sure you want to delete service engineer with ID {user_id}? (yes/no): ")
-        if confirmation.lower() == "yes":
-            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-            conn.commit()
-            if cursor.rowcount > 0:
-                log_activity("system", f"Successfully deleted service engineer {current_username} (ID: {user_id})")
-                print("Service engineer deleted successfully.")
-            else:
-                log_activity("system", f"Failed to delete service engineer - no rows affected for ID {user_id}", suspicious=True)
-                print("Failed to delete service engineer - no changes made to database.")
-        elif confirmation.lower() != "yes":
-            log_activity("system", f"Service engineer deletion cancelled for user {current_username} (ID: {user_id})")
+        confirm = input("Are you sure you want to delete this service engineer? (yes/no): ").strip().lower()
+        if confirm != "yes":
             print("Deletion cancelled.")
             conn.close()
-            return
+            return False
 
+        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        if cursor.rowcount > 0:
+            log_activity("system", f"Successfully deleted service engineer {current_username} (ID: {user_id})")
+            print("Service engineer deleted successfully.")
+        else:
+            log_activity("system", f"Failed to delete service engineer - no rows affected for ID {user_id}", suspicious=True)
+            print("Failed to delete service engineer - no changes made to database.")
+            
     except sqlite3.Error as e:
         log_activity("system", f"Failed to delete service engineer - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
         print(f"Database error occurred: {str(e)}")
@@ -913,7 +945,7 @@ def delete_service_engineer(): # WERKT VOLLEDIG
         print(f"An unexpected error occurred: {str(e)}")
     finally:
         conn.close()
-    
+
 def reset_service_engineer_password(): # WERKT VOLLEDIG
     """Resets the password of a service engineer with a temporary password."""
     try:
@@ -947,8 +979,8 @@ def reset_service_engineer_password(): # WERKT VOLLEDIG
             conn.close()
             return
 
-        confirmation = input(f"Are you sure you want to reset the password for service engineer '{current_username}' (ID: {user_id})? (yes/no): ")
-        if confirmation.lower() == "yes":
+        confirm = input(f"Are you sure you want to reset the password for service engineer '{current_username}' (ID: {user_id})? (yes/no): ")
+        if confirm.lower() == "yes":
             temp_password = secrets.token_urlsafe(12)
             hashed_password = bcrypt.hashpw(temp_password.encode('utf-8'), bcrypt.gensalt())
             cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, user_id))
@@ -963,7 +995,7 @@ def reset_service_engineer_password(): # WERKT VOLLEDIG
                 log_activity("system", f"Failed to reset service engineer password - no rows affected for ID {user_id}", suspicious=True)
                 print("Failed to reset password - no changes made to database.")
         
-        elif confirmation.lower() != "yes":
+        elif confirm.lower() != "yes":
             log_activity("system", f"Service engineer password reset cancelled for user {current_username} (ID: {user_id})")
             print("Password reset cancelled.")
             conn.close()
@@ -1431,24 +1463,21 @@ def delete_system_admin(): # WERKT VOLLEDIG
             conn.close()
             return
 
-        confirmation = input(f"Are you sure you want to delete system administrator with ID {user_id}? (yes/no): ")
-        if confirmation.lower() == "yes":
-            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-            conn.commit()
-        
-            if cursor.rowcount > 0:
-                log_activity("system", f"Successfully deleted system administrator {current_username} (ID: {user_id})")
-                print("System administrator deleted successfully.")
-            else:
-                log_activity("system", f"Failed to delete system admin - no rows affected for ID {user_id}", suspicious=True)
-                print("Failed to delete system admin - no changes made to database.")
-
-        elif confirmation.lower() != "yes":
-            log_activity("system", f"System admin deletion cancelled for user {current_username} (ID: {user_id})")
+        confirm = input("Are you sure you want to delete this system administrator? (yes/no): ").strip().lower()
+        if confirm != "yes":
             print("Deletion cancelled.")
             conn.close()
-            return
+            return False
 
+        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        if cursor.rowcount > 0:
+            log_activity("system", f"Successfully deleted system administrator {current_username} (ID: {user_id})")
+            print("System administrator deleted successfully.")
+        else:
+            log_activity("system", f"Failed to delete system admin - no rows affected for ID {user_id}", suspicious=True)
+            print("Failed to delete system admin - no changes made to database.")
+            
     except sqlite3.Error as e:
         log_activity("system", f"Failed to delete system admin - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
         print(f"Database error occurred: {str(e)}")
@@ -1641,20 +1670,20 @@ def revoke_restore_code(current_user):
 if __name__ == "__main__":
 
     ###TRAVELLER OPERATIONS
-    # add_traveller("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "1234AB", "Rotterdam", "test@example.com", "+31-6-12345678", "+31-6-12345678", "AB1234567")
-    # delete_traveller(1)
-    # update_traveller(1, first_name="Jane", last_name="Doe", birth_date="1990-01-01", gender="Female", street_name="New Street", house_number="456", zip_code="5678CD", city="Amsterdam", email="jane.doe@example.com", mobile_phone="+31-6-87654321", license_number="CD9876543")
-    # search_travellers("Jane")
+    # add_traveller()
+    # delete_traveller()
+    # update_traveller()
+    # search_travellers()
 
     ###SCOOTER OPERATIONS
-    # add_vehicle("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "12345", "City", "8Fg6y@example.com", "1234567890", "1234567890", "1234567890")
-    # update_vehicle("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "12345", "City", "8Fg6y@example.com", "1234567890", "1234567890", "1234567890")   
-    # delete_vehicle("John", "Doe")
-    # search_vehicles("John", "Doe", "1990-01-01", "Male", "Main Street", "123", "12345", "City", "8Fg6y@example.com", "1234567890", "1234567890", "1234567890")
+    # add_scooter()
+    # delete_scooter()
+    # update_scooter()
+    search_scooters()
 
 
     # list_users()
-    print_logs()
+    # print_logs()
 
     ###SYSTEM ADMIN FUNCTIONS
     # add_system_admin()
