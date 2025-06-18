@@ -130,50 +130,99 @@ def add_traveller():
     finally:
         conn.close() #WERKT VOLLEDIG
 
-def search_travellers(key):
+def search_travellers():
+    """
+    Prompt the user for a search key and display matching travellers.
+    Search is case-insensitive and matches substrings in:
+    customer_id, first_name, last_name, zip_code, mobile_phone, email, city.
+    """
+    key = input("Enter search key for travellers: ").strip().lower()
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT customer_id, first_name, last_name, zip_code, mobile_phone FROM travellers")
+    cursor.execute("""
+        SELECT customer_id, first_name, last_name, zip_code, mobile_phone, email, city
+        FROM travellers
+    """)
     results = []
     for row in cursor.fetchall():
+        customer_id = str(row[0])
         decrypted_first = decrypt_data(row[1])
         decrypted_last = decrypt_data(row[2])
-        if key.lower() in decrypted_first.lower() or key.lower() in decrypted_last.lower():
-            decrypted_zip = decrypt_data(row[3])
-            decrypted_phone = decrypt_data(row[4])
-            results.append((row[0], decrypted_first, decrypted_last, decrypted_zip, decrypted_phone))
+        decrypted_zip = decrypt_data(row[3])
+        decrypted_phone = decrypt_data(row[4])
+        decrypted_email = decrypt_data(row[5])
+        decrypted_city = decrypt_data(row[6])
+        if (
+            key in customer_id.lower()
+            or key in decrypted_first.lower()
+            or key in decrypted_last.lower()
+            or key in decrypted_zip.lower()
+            or key in decrypted_phone.lower()
+            or key in decrypted_email.lower()
+            or key in decrypted_city.lower()
+        ):
+            results.append((
+                row[0], decrypted_first, decrypted_last, decrypted_zip, decrypted_phone, decrypted_email, decrypted_city
+            ))
     conn.close()
+    if results:
+        print("Matching travellers:")
+        for r in results:
+            print(f"ID: {r[0]}, Name: {r[1]} {r[2]}, Zip: {r[3]}, Phone: {r[4]}, Email: {r[5]}, City: {r[6]}")
+    else:
+        print("No matching travellers found.")
     return results
 
-def update_traveller(customer_id, **kwargs):
-    # kwargs: any updatable field, must be validated and encrypted
-    allowed_fields = {
-        "first_name": validate_fname,
-        "last_name": validate_lname,
-        "birth_date": validate_birth_date,
-        "gender": validate_gender,
-        "street_name": validate_street_name,
-        "house_number": validate_house_number,
-        "zip_code": validate_zip,
-        "city": validate_city,
-        "email": validate_email,
-        "mobile_phone": validate_phone,
-        "license_number": validate_license_number
-    }
-    updates = []
-    values = []
-    for field, value in kwargs.items():
-        if field in allowed_fields and allowed_fields[field](value):
-            updates.append(f"{field}=?")
-            values.append(encrypt_data(value))
-        else:
-            print(f"Invalid value for {field}.")
-            return False
-    if not updates:
-        print("No valid fields to update.")
+def update_traveller():
+    customer_id = input("Enter the Traveller ID to update: ").strip()
+    
+    if not customer_id.isdigit():
+        print("Invalid Traveller ID format.")
         return False
+
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    cursor.execute("SELECT 1 FROM travellers WHERE customer_id=?", (customer_id,))
+    if not cursor.fetchone():
+        print("Traveller ID does not exist.")
+        conn.close()
+        return False
+
+    print("Leave fields blank to skip updating them.")
+    allowed_fields = {
+        "first_name": (validate_fname, True),
+        "last_name": (validate_lname, True),
+        "birth_date": (validate_birth_date, True),
+        "gender": (validate_gender, True),
+        "street_name": (validate_street_name, True),
+        "house_number": (validate_house_number, False),
+        "zip_code": (validate_zip, False),
+        "city": (validate_city, False),
+        "email": (validate_email, True),
+        "mobile_phone": (validate_phone, True),
+        "license_number": (validate_license_number, True)
+    }
+
+    updates = []
+    values = []
+
+    for field, (validator, should_encrypt) in allowed_fields.items():
+        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+        if value:
+            if validator(value):
+                processed_value = encrypt_data(value) if should_encrypt else value
+                updates.append(f"{field}=?")
+                values.append(processed_value)
+            else:
+                print(f"Invalid value for {field}. Update cancelled.")
+                conn.close()
+                return False
+    if not updates:
+        print("No valid fields to update.")
+        conn.close()
+        return False
+
     sql = f"UPDATE travellers SET {', '.join(updates)} WHERE customer_id=?"
     values.append(customer_id)
     cursor.execute(sql, tuple(values))
@@ -182,14 +231,35 @@ def update_traveller(customer_id, **kwargs):
     print("Traveller updated.")
     return True
 
-def delete_traveller(customer_id):
+
+def delete_traveller():
+    customer_id = input("Enter the Traveller ID to delete: ").strip()
+    
+    if not customer_id.isdigit():
+        print("Invalid Traveller ID format.")
+        return False
+
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    cursor.execute("SELECT 1 FROM travellers WHERE customer_id=?", (customer_id,))
+    if not cursor.fetchone():
+        print("Traveller ID does not exist.")
+        conn.close()
+        return False
+
+    confirm = input("Are you sure you want to delete this traveller? (yes/no): ").strip().lower()
+    if confirm != "yes":
+        print("Deletion cancelled.")
+        conn.close()
+        return False
+
     cursor.execute("DELETE FROM travellers WHERE customer_id=?", (customer_id,))
     conn.commit()
     conn.close()
     print("Traveller deleted.")
     return True
+
 
 # === Scooter Operations ===
 def add_scooter():
@@ -303,7 +373,8 @@ def add_scooter():
     finally:
         conn.close()
 
-def search_scooters(key):
+def search_scooters():
+    key = input("Enter search key for scooters: ").strip().lower()
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT scooter_id, brand, model, serial_number, location FROM scooters")
@@ -313,43 +384,80 @@ def search_scooters(key):
         decrypted_model = decrypt_data(row[2])
         decrypted_serial = decrypt_data(row[3])
         decrypted_location = decrypt_data(row[4])
-        if (key.lower() in decrypted_brand.lower() or key.lower() in decrypted_model.lower() or key.lower() in decrypted_serial.lower()):
+        if (key in decrypted_brand.lower() or key in decrypted_model.lower() or key in decrypted_serial.lower()):
             results.append((row[0], decrypted_brand, decrypted_model, decrypted_serial, decrypted_location))
     conn.close()
+    if results:
+        print("Matching scooters:")
+        for r in results:
+            print(f"ID: {r[0]}, Brand: {r[1]}, Model: {r[2]}, Serial: {r[3]}, Location: {r[4]}")
+    else:
+        print("No matching scooters found.")
     return results
 
-def update_scooter(scooter_id, **kwargs):
+def update_scooter():
+    scooter_id = input("Enter the Scooter ID to update: ").strip()
+    if not scooter_id.isdigit():
+        print("Invalid Scooter ID format.")
+        return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM scooters WHERE scooter_id=?", (scooter_id,))
+    if not cursor.fetchone():
+        print("Scooter ID does not exist.")
+        conn.close()
+        return False
+
+    print("Leave fields blank to skip updating them.")
     allowed_fields = {
-        "brand": lambda x: True,
-        "model": lambda x: True,
-        "serial_number": lambda x: True,
-        "top_speed": lambda x: True,
-        "battery_capacity": lambda x: True,
-        "state_of_charge": lambda x: True,
-        "target_range": lambda x: True,
-        "location": lambda x: True,
-        "out_of_service": lambda x: True,
-        "mileage": lambda x: True,
-        "last_service_date": lambda x: True
+        "brand": (validate_brand, True),
+        "model": (validate_model, True),
+        "serial_number": (validate_serial_number, True),
+        "top_speed": (validate_top_speed, False),
+        "battery_capacity": (validate_battery_capacity, False),
+        "state_of_charge": (validate_SoC, False),
+        "target_range": (validate_target_range, False),
+        "location": (validate_location, True),
+        "out_of_service": (validate_OoS, False),
+        "mileage": (validate_mileage, False),
+        "last_service_date": (validate_last_maint, False)
     }
     updates = []
     values = []
-    for field, value in kwargs.items():
-        if field in allowed_fields and allowed_fields[field](value):
-            if field in {"brand", "model", "serial_number", "location"}:
+
+    for field, (validator, should_encrypt) in allowed_fields.items():
+        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+        if value:
+            # Convert to correct type for numeric fields
+            if field in {"top_speed", "battery_capacity", "state_of_charge", "target_range", "mileage"}:
+                try:
+                    value = int(value)
+                except ValueError:
+                    print(f"Invalid value for {field}. Must be an integer.")
+                    conn.close()
+                    return False
+            if field == "out_of_service":
+                if value.lower() in {"true", "false"}:
+                    value = value.lower() == "true"
+                else:
+                    print("Invalid value for out_of_service. Must be True or False.")
+                    conn.close()
+                    return False
+            if validator(value):
+                processed_value = encrypt_data(value) if should_encrypt else value
                 updates.append(f"{field}=?")
-                values.append(encrypt_data(value))
+                values.append(processed_value)
             else:
-                updates.append(f"{field}=?")
-                values.append(value)
-        else:
-            print(f"Invalid value for {field}.")
-            return False
+                print(f"Invalid value for {field}. Update cancelled.")
+                conn.close()
+                return False
+
     if not updates:
         print("No valid fields to update.")
+        conn.close()
         return False
-    conn = get_db_connection()
-    cursor = conn.cursor()
+
     sql = f"UPDATE scooters SET {', '.join(updates)} WHERE scooter_id=?"
     values.append(scooter_id)
     cursor.execute(sql, tuple(values))
@@ -358,7 +466,8 @@ def update_scooter(scooter_id, **kwargs):
     print("Scooter updated.")
     return True
 
-def delete_scooter(scooter_id):
+def delete_scooter():
+    scooter_id = input("Enter the Scooter ID to delete: ")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM scooters WHERE scooter_id=?", (scooter_id,))
@@ -366,8 +475,6 @@ def delete_scooter(scooter_id):
     conn.close()
     print("Scooter deleted.")
     return True
-
-
 
 # === User/System Admin Functions ===
 def list_users(): #WERKT VOLLEDIG   
@@ -943,8 +1050,7 @@ def add_system_admin(): # WERKT VOLLEDIG
     finally:
         conn.close()
 
-def update_system_admin_username(): # WERKT VOLLEDIG
-    """Updates the username of a system administrator."""
+def update_system_admin_username():
     try:
         user_id = int(input("Enter the ID of the system administrator you want to update: "))
     except ValueError:
@@ -1037,37 +1143,93 @@ def update_system_admin_username(): # WERKT VOLLEDIG
     finally:
         conn.close()
 
-def update_system_admin_password(): # WERKT VOLLEDIG
+def update_system_admin_password():
     """Updates the password of a system administrator."""
-    try:
-        user_id = int(input("Enter the ID of the system administrator you want to update: "))
-    except ValueError:
-        log_activity("system", "Failed to update system admin password - invalid ID format", suspicious=True)
-        print("Invalid ID format. Please enter a number.")
+    username = input("Username: ")
+    if not validate_username(username):
+        log_activity("system", f"Failed to update system admin password - invalid username format: {username}", suspicious=True)
+        print("Invalid username format.")
+        return
+
+    old_password = input("Current Password: ")
+    new_password = input("New Password: ")
+    if not validate_password(new_password):
+        log_activity("system", f"Failed to update system admin password - invalid new password format for user: {username}", suspicious=True)
+        print("Invalid password format. Please use 12-30 alphanumeric characters, with at least one uppercase letter, one lowercase letter, and one special character.")
         return
 
     conn = get_db_connection()
     cursor = conn.cursor()
+    try:
+        encrypted_username = encrypt_data(username)
+        cursor.execute("SELECT id, password, role FROM users WHERE username = ?", (encrypted_username,))
+        result = cursor.fetchone()
+        if not result:
+            log_activity("system", f"Failed to update system admin password - username '{username}' not found", suspicious=True)
+            print("User with that username not found.")
+            return
+
+        user_id, current_password_hash, role_encrypted = result
+        role = decrypt_data(role_encrypted)
+        if role != "admin":
+            log_activity("system", f"Failed to update password - user '{username}' is not a system administrator", suspicious=True)
+            print("User with that username is not a System Administrator.")
+            return
+
+        if not bcrypt.checkpw(old_password.encode('utf-8'), current_password_hash):
+            log_activity("system", f"Failed to update system admin password - incorrect current password for user: {username}", suspicious=True)
+            print("Incorrect current password.")
+            return
+
+        if bcrypt.checkpw(new_password.encode('utf-8'), current_password_hash):
+            log_activity("system", f"Failed to update system admin password - new password same as current for user: {username}")
+            print("New password cannot be the same as the current password.")
+            return
+
+        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, user_id))
+        conn.commit()
+        if cursor.rowcount > 0:
+            log_activity("system", f"Successfully updated system admin password for user '{username}' (ID: {user_id})")
+            print("Password updated successfully.")
+        else:
+            log_activity("system", f"Failed to update system admin password - no rows affected for user: {username}", suspicious=True)
+            print("Failed to update password - no changes made to database.")
+    except sqlite3.Error as e:
+        log_activity("system", f"Failed to update system admin password - database error for user '{username}'", f"Error: {str(e)}", suspicious=True)
+        print(f"Database error occurred: {str(e)}")
+    except Exception as e:
+        log_activity("system", f"Failed to update system admin password - unexpected error for user '{username}'", f"Error: {str(e)}", suspicious=True)
+        print(f"An unexpected error occurred: {str(e)}")
+    finally:
+        conn.close()
+
+def delete_system_admin():
+    username = input("Username to delete: ")
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT username, password, role FROM users WHERE id = ?", (user_id,))
+        encrypted_username = encrypt_data(username)
+        cursor.execute("SELECT id, username, password, role FROM users WHERE username = ?", (encrypted_username,))
         result = cursor.fetchone()
 
         if not result:
-            log_activity("system", f"Failed to update system admin password - user ID {user_id} not found")
-            print("User with that ID not found.")
+            log_activity("system", f"Failed to delete system admin - username '{username}' not found")
+            print("User with that username not found.")
             conn.close()
             return
 
-        current_username_encrypted = result[0]
+        user_id = result[0]
+        current_username_encrypted = result[1]
         current_username = decrypt_data(current_username_encrypted)
-        current_password_hash = result[1]
-        user_role_encrypted = result[2]
+        current_password_hash = result[2]
+        user_role_encrypted = result[3]
         user_role = decrypt_data(user_role_encrypted)
 
         if user_role != "admin":
-            log_activity("system", f"Failed to update password - user ID {user_id} is not a system administrator", suspicious=True)
-            print("User with that ID is not a System Administrator.")
+            log_activity("system", f"Failed to delete - user '{username}' is not a system administrator", suspicious=True)
+            print("User with that username is not a System Administrator.")
             conn.close()
             return
 
@@ -1103,17 +1265,17 @@ def update_system_admin_password(): # WERKT VOLLEDIG
         conn.commit()
         
         if cursor.rowcount > 0:
-            log_activity("system", f"Successfully updated system admin password for user {current_username} (ID: {user_id})")
-            print("Password updated successfully.")
+            log_activity("system", f"Successfully deleted system administrator {current_username} (ID: {user_id})")
+            print("System administrator deleted successfully.")
         else:
-            log_activity("system", f"Failed to update system admin password - no rows affected for ID {user_id}", suspicious=True)
-            print("Failed to update password - no changes made to database.")
+            log_activity("system", f"Failed to delete system admin - no rows affected for ID {user_id}", suspicious=True)
+            print("Failed to delete system admin - no changes made to database.")
             
     except sqlite3.Error as e:
-        log_activity("system", f"Failed to update system admin password - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        log_activity("system", f"Failed to delete system admin - database error for username '{username}'", f"Error: {str(e)}", suspicious=True)
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
-        log_activity("system", f"Failed to update system admin password - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
+        log_activity("system", f"Failed to delete system admin - unexpected error for username '{username}'", f"Error: {str(e)}", suspicious=True)
         print(f"An unexpected error occurred: {str(e)}")
     finally:
         conn.close()
