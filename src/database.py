@@ -50,7 +50,7 @@ def initialize_db():
 
     cursor.execute("""  
         CREATE TABLE IF NOT EXISTS travellers ( 
-            customer_id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            traveller_id INTEGER PRIMARY KEY AUTOINCREMENT, 
             first_name TEXT,          -- Encrypt
             last_name TEXT,           -- Encrypt
             birth_date TEXT,          -- Encrypt if text

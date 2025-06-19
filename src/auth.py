@@ -5,6 +5,7 @@ import bcrypt
 from datetime import datetime
 
 from database import DATABASE_NAME, get_user_by_username
+from encryption import encrypt_data
 
 try:
     from src.encryption import decrypt_data
@@ -83,7 +84,7 @@ def login():
             if verify_password(password_input, user["password"]):
                 log_action(username_input, f"Login as {user['role']}", False)
                 print(f"Logged in as {user['role']}.")
-                return {"username": user["username"], "role": user["role"]}
+                return {"username": encrypt_data(user["username"]), "role": user["role"]}
             else:
                 log_action(username_input, "Login failed: invalid password", True)
                 print("Invalid password.")
