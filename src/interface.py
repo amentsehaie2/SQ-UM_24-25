@@ -10,7 +10,7 @@ from operations import (
     make_backup, restore_backup, generate_restore_code, revoke_restore_code,
     list_users
 )
-from logger import print_logs
+from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert
 
 def main():
     while True:
@@ -25,7 +25,7 @@ def main_menu(user):
     if role == "super_admin":
         super_admin_menu(user)
     elif role == "system_admin":
-        system_admin_menu(user)
+        system_administration_menu(user)
     elif role == "engineer" or role == "service_engineer":
         service_engineer_menu(user)
     else:
@@ -47,7 +47,7 @@ def super_admin_menu(user):
         elif choice == "3":
             scooter_management_menu()
         elif choice == "4":
-            system_admin_menu(user)
+            system_administration_menu(user)
         elif choice == "5":
             print("Logging out...")
             break
@@ -153,47 +153,55 @@ def scooter_management_menu():
         else:
             print("Invalid option. Please try again.")
 
-def system_admin_menu(user):
-    while True:
-        print("\n--- System Admin Menu ---")
-        print("1. Traveller Management")
-        print("2. Scooter Management")
-        print("3. System Administration")
-        print("4. Uitloggen")
-        choice = input("Select an option (1-4): ")
-        if choice == "1":
-            traveller_management_menu()
-        elif choice == "2":
-            scooter_management_menu()
-        elif choice == "3":
-            system_administration_menu(user)
-        elif choice == "4":
-            print("Logging out...")
-            break
-        else:
-            print("Invalid option. Please try again.")
+def view_suspicious_logs():
+    """View and acknowledge suspicious logs."""
+    unread_suspicious = show_suspicious_alert()
+    
+    if not unread_suspicious:
+        print("\n✅ No unread suspicious activities found.")
+        return
+    
+    print(f"\n🚨 Found some unread suspicious activities:")
+    print("-" * 80)
+    
+    for log in unread_suspicious:
+        print(f"ID: {log['log_id']} | Date: {log['timestamp']} | User: {log['username']}")
+        print(f"Description: {log['description']}")
+        if log.get('additional_info'):
+            print(f"Details: {log['additional_info']}")
+        print("-" * 80)
+    
+    acknowledge = input("\nAcknowledge these suspicious activities? (yes/no): ").strip().lower()
+    if acknowledge == "yes":
+        mark_suspicious_logs_as_read()
+        print("✅ All suspicious activities marked as read.")
+    else:
+        print("⚠️  Suspicious activities remain unread.")
 
 def system_administration_menu(user):
     while True:
         print("\n--- System Administration ---")
         print("1. View system logs")
-        print("2. Make a system backup")
-        print("3. Restore a system backup")
-        print("4. Generate restore-code for System Administrator")
-        print("5. Revoke restore-code for System Administrator")
-        print("6. Terug")
-        choice = input("Select an option (1-6): ")
+        print("2. View suspicious activities")  
+        print("3. Make a system backup")
+        print("4. Restore a system backup")
+        print("5. Generate restore-code for System Administrator")
+        print("6. Revoke restore-code for System Administrator")
+        print("7. Terug")
+        choice = input("Select an option (1-7): ")
         if choice == "1":
             print_logs()
         elif choice == "2":
-            make_backup(user)
+            view_suspicious_logs()
         elif choice == "3":
-            restore_backup(user)
+            make_backup(user)
         elif choice == "4":
-            generate_restore_code(user)
+            restore_backup(user)
         elif choice == "5":
-            revoke_restore_code(user)
+            generate_restore_code(user)
         elif choice == "6":
+            revoke_restore_code(user)
+        elif choice == "7":
             break
         else:
             print("Invalid option. Please try again.")
