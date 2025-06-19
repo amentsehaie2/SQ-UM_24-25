@@ -13,7 +13,6 @@ from validation import (
     validate_OoS, validate_mileage, validate_last_maint
 )
 from encryption import encrypt_data, decrypt_data
-import bcrypt
 from logger import log_activity, print_logs
 
 # Use the same DB path logic as database.py
@@ -465,6 +464,71 @@ def update_scooter():
     conn.close()
     print("Scooter updated.")
     return True
+
+def update_scooter_by_engineer():
+    scooter_id = input("Enter the Scooter ID to update: ").strip()
+    if not scooter_id.isdigit():
+        print("Invalid Scooter ID format.")
+        return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM scooters WHERE scooter_id=?", (scooter_id,))
+    if not cursor.fetchone():
+        print("Scooter ID does not exist.")
+        conn.close()
+        return False
+
+    print("Leave fields blank to skip updating them.")
+    # Alleen de velden die een engineer mag aanpassen:
+    allowed_fields = {
+        "state_of_charge": (validate_SoC, False),
+        "out_of_service": (validate_OoS, False),
+        "mileage": (validate_mileage, False),
+        "last_service_date": (validate_last_maint, False)
+    }
+    updates = []
+    values = []
+
+    for field, (validator, should_encrypt) in allowed_fields.items():
+        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+        if value:
+            if field in {"state_of_charge", "mileage"}:
+                try:
+                    value = int(value)
+                except ValueError:
+                    print(f"Invalid value for {field}. Must be an integer.")
+                    conn.close()
+                    return False
+            if field == "out_of_service":
+                if value.lower() in {"true", "false"}:
+                    value = value.lower() == "true"
+                else:
+                    print("Invalid value for out_of_service. Must be True or False.")
+                    conn.close()
+                    return False
+            if validator(value):
+                processed_value = encrypt_data(value) if should_encrypt else value
+                updates.append(f"{field}=?")
+                values.append(processed_value)
+            else:
+                print(f"Invalid value for {field}. Update cancelled.")
+                conn.close()
+                return False
+
+    if not updates:
+        print("No valid fields to update.")
+        conn.close()
+        return False
+
+    sql = f"UPDATE scooters SET {', '.join(updates)} WHERE scooter_id=?"
+    values.append(scooter_id)
+    cursor.execute(sql, tuple(values))
+    conn.commit()
+    conn.close()
+    print("Scooter updated.")
+    return True
+
 
 def delete_scooter():
     scooter_id = input("Enter the Scooter ID to delete: ")

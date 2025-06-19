@@ -4,7 +4,7 @@ from operations import (
     add_scooter, update_scooter, delete_scooter, search_scooters,
     add_service_engineer, update_service_engineer_username, update_service_engineer_password,
     update_fname_service_engineer, update_lname_service_engineer, delete_service_engineer,
-    reset_service_engineer_password,
+    reset_service_engineer_password, update_scooter_by_engineer,
     add_system_admin, update_system_admin_username, update_system_admin_password,
     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
     make_backup, restore_backup, generate_restore_code, revoke_restore_code,
@@ -30,7 +30,7 @@ def main_menu(user):
         service_engineer_menu(user)
     else:
         print("Unknown role. Exiting.")
-        
+
 def super_admin_menu(user):
     while True:
         print("\n--- Super Administrator Menu ---")
@@ -41,20 +41,20 @@ def super_admin_menu(user):
         print("5. Uitloggen")
         choice = input("Select a category (1-5): ")
         if choice == "1":
-            user_management_menu()
+            user_management_menu(user)
         elif choice == "2":
             traveller_management_menu()
         elif choice == "3":
-            scooter_management_menu()
+            scooter_management_menu(user)
         elif choice == "4":
-            system_admin_menu(user)
+            system_administration_menu(user)
         elif choice == "5":
             print("Logging out...")
             break
         else:
             print("Invalid option. Please try again.")
 
-def user_management_menu():
+def user_management_menu(current_user):
     while True:
         print("\n--- User Management ---")
         print("1. List users")
@@ -65,15 +65,24 @@ def user_management_menu():
         print("6. Update Service Engineer last name")
         print("7. Delete Service Engineer")
         print("8. Reset Service Engineer password")
-        print("9. Add System Administrator")
-        print("10. Update System Admin username")
-        print("11. Update System Admin password")
-        print("12. Update System Admin first name")
-        print("13. Update System Admin last name")
-        print("14. Delete System Administrator")
-        print("15. Reset System Admin password")
-        print("16. Terug")
-        choice = input("Select an option (1-16): ")
+
+        # Alleen voor Super Admin:
+        if current_user["role"] == "super_admin":
+            print("9. Add System Administrator")
+            print("10. Update System Admin username")
+            print("11. Update System Admin password")
+            print("12. Update System Admin first name")
+            print("13. Update System Admin last name")
+            print("14. Delete System Administrator")
+            print("15. Reset System Admin password")
+            print("16. Terug")
+            offset = 0
+        else:
+            print("9. Terug")
+            offset = 7  # menu nummers opschuiven
+
+        choice = input("Select an option: ")
+        # Service Engineer beheer opties (voor sysadmin en superadmin)
         if choice == "1":
             list_users()
         elif choice == "2":
@@ -90,21 +99,22 @@ def user_management_menu():
             delete_service_engineer()
         elif choice == "8":
             reset_service_engineer_password()
-        elif choice == "9":
+        elif current_user["role"] == "super_admin" and choice == "9":
             add_system_admin()
-        elif choice == "10":
+        elif current_user["role"] == "super_admin" and choice == "10":
             update_system_admin_username()
-        elif choice == "11":
+        elif current_user["role"] == "super_admin" and choice == "11":
             update_system_admin_password()
-        elif choice == "12":
+        elif current_user["role"] == "super_admin" and choice == "12":
             update_fname_system_admin()
-        elif choice == "13":
+        elif current_user["role"] == "super_admin" and choice == "13":
             update_lname_system_admin()
-        elif choice == "14":
+        elif current_user["role"] == "super_admin" and choice == "14":
             delete_system_admin()
-        elif choice == "15":
+        elif current_user["role"] == "super_admin" and choice == "15":
             reset_system_admin_password()
-        elif choice == "16":
+        elif (current_user["role"] == "super_admin" and choice == "16") or \
+             (current_user["role"] != "super_admin" and choice == "9"):
             break
         else:
             print("Invalid option. Please try again.")
@@ -131,7 +141,7 @@ def traveller_management_menu():
         else:
             print("Invalid option. Please try again.")
 
-def scooter_management_menu():
+def scooter_management_menu(current_user):
     while True:
         print("\n--- Scooter Management ---")
         print("1. Add Scooter")
@@ -140,12 +150,24 @@ def scooter_management_menu():
         print("4. Search Scooter")
         print("5. Terug")
         choice = input("Select an option (1-5): ")
+        # Alleen System Admin & Super Admin mogen scooters toevoegen/verwijderen!
         if choice == "1":
-            add_scooter()
+            if current_user["role"] in ["super_admin", "system_admin"]:
+                add_scooter()
+            else:
+                print("Permission denied: Only System Admin or Super Admin can add scooters.")
         elif choice == "2":
-            update_scooter()
+            if current_user["role"] in ["super_admin", "system_admin"]:
+                update_scooter()
+            elif current_user["role"] == "engineer" or current_user["role"] == "service_engineer":
+                update_scooter_by_engineer()
+            else:
+                print("Permission denied.")
         elif choice == "3":
-            delete_scooter()
+            if current_user["role"] in ["super_admin", "system_admin"]:
+                delete_scooter()
+            else:
+                print("Permission denied: Only System Admin or Super Admin can delete scooters.")
         elif choice == "4":
             search_scooters()
         elif choice == "5":
@@ -156,18 +178,21 @@ def scooter_management_menu():
 def system_admin_menu(user):
     while True:
         print("\n--- System Admin Menu ---")
-        print("1. Traveller Management")
-        print("2. Scooter Management")
-        print("3. System Administration")
-        print("4. Uitloggen")
-        choice = input("Select an option (1-4): ")
+        print("1. User Management")
+        print("2. Traveller Management")
+        print("3. Scooter Management")
+        print("4. System Administration")
+        print("5. Uitloggen")
+        choice = input("Select an option (1-5): ")
         if choice == "1":
-            traveller_management_menu()
+            user_management_menu(user)
         elif choice == "2":
-            scooter_management_menu()
+            traveller_management_menu()
         elif choice == "3":
-            system_administration_menu(user)
+            scooter_management_menu(user)
         elif choice == "4":
+            system_administration_menu(user)
+        elif choice == "5":
             print("Logging out...")
             break
         else:
@@ -188,11 +213,23 @@ def system_administration_menu(user):
         elif choice == "2":
             make_backup(user)
         elif choice == "3":
-            restore_backup(user)
+            # Alleen System Admin mag restore uitvoeren!
+            if user["role"] == "system_admin":
+                restore_backup(user)
+            else:
+                print("Only a System Administrator can restore a backup!")
         elif choice == "4":
-            generate_restore_code(user)
+            # Alleen Super Admin mag een restore-code genereren!
+            if user["role"] == "super_admin":
+                generate_restore_code(user)
+            else:
+                print("Only a Super Administrator can generate a restore-code!")
         elif choice == "5":
-            revoke_restore_code(user)
+            # Alleen Super Admin mag restore-codes intrekken!
+            if user["role"] == "super_admin":
+                revoke_restore_code(user)
+            else:
+                print("Only a Super Administrator can revoke a restore-code!")
         elif choice == "6":
             break
         else:
@@ -201,8 +238,8 @@ def system_administration_menu(user):
 def service_engineer_menu(user):
     while True:
         print("\n--- Service Engineer Menu ---")
-        print("1. Traveller Management")
-        print("2. Scooter Management")
+        print("1. Search Scooter")
+        print("2. Update Scooter attributes")
         print("3. Update own username")
         print("4. Update own password")
         print("5. Update own first name")
@@ -210,9 +247,9 @@ def service_engineer_menu(user):
         print("7. Uitloggen")
         choice = input("Select an option (1-7): ")
         if choice == "1":
-            traveller_management_menu()
+            search_scooters()
         elif choice == "2":
-            scooter_management_menu()
+            update_scooter_by_engineer()
         elif choice == "3":
             update_service_engineer_username()
         elif choice == "4":
