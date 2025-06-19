@@ -24,7 +24,7 @@ from database import (
 )
 from auth import verify_password, validate_password, login, logout
 from operations import (
-    create_backup, restore_backup_by_name,
+    make_backup, restore_backup_by_name,
     generate_restore_code_db, use_restore_code_db
 )
 
@@ -113,7 +113,7 @@ print("Logout succesvol.")
 
 # ===== TEST: BACKUP/RESTORE ZIP FILE FUNCTIONS =====
 print("\n=== TEST: BACKUP/RESTORE ZIP FILE FUNCTIONS ===")
-backup_name = create_backup()
+backup_name = make_backup()
 print("Backup gemaakt:", backup_name)
 
 # Simuleer een 'restore' met code functionaliteit
@@ -136,4 +136,3 @@ print("Backup succesvol hersteld.")
 # Cleanup
 delete_user_by_username(test_username)
 print("\n=== ALLES SUCCESVOL GETEST ===")
-
