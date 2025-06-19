@@ -501,7 +501,7 @@ def search_scooters(current_user):
     else:
         print("No matching scooters found.")
     return results
-
+    
     try:
         cursor.execute("SELECT scooter_id, brand, model, serial_number, location FROM scooters")
         results = []

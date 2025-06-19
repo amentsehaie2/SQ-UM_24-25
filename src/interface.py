@@ -7,7 +7,7 @@ from operations import (
     add_system_admin, update_system_admin_username, update_system_admin_password,
     delete_system_admin, reset_system_admin_password,
     make_backup, restore_backup, generate_restore_code, revoke_restore_code,
-    list_users
+    list_users, update_fname_system_admin, 
 )
 from logger import print_logs
 
@@ -42,11 +42,11 @@ def super_admin_menu(current_user):
         choice = input("Select a category (1-6): ")
 
         if choice == "1":
-            user_management_menu(usercurrent_user)
+            user_management_menu(current_user)
         elif choice == "2":
             traveller_management_menu(current_user)
         elif choice == "3":
-            scooter_management_menu(usercurrent_user)
+            scooter_management_menu(current_user)
         elif choice == "4":
             system_administration_menu(current_user)
         elif choice == "5":
@@ -57,7 +57,7 @@ def super_admin_menu(current_user):
         else:
             print("Invalid option. Please try again.")
 
-def user_management_menu(current_usercurrent_user):
+def user_management_menu(current_user):
     while True:
         print("\n--- User Management ---")
         print("1. List users")
@@ -155,7 +155,7 @@ def traveller_management_menu(current_user):
         else:
             print("Invalid option. Please try again.")
 
-def scooter_management_menu(current_usercurrent_user):
+def scooter_management_menu(current_user):
     while True:
         print("\n--- Scooter Management ---")
         print("1. Add Scooter")
@@ -207,7 +207,7 @@ def system_admin_menu(user):
         else:
             print("Invalid option. Please try again.")
 
-def system_administration_menu(user):
+def system_administration_menu(current_user):
     while True:
         print("\n--- System Administration ---")
         print("1. View system logs")
