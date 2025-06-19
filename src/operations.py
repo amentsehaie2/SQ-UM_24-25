@@ -14,7 +14,7 @@ from validation import (
 )
 from encryption import encrypt_data, decrypt_data
 import bcrypt
-from logger import log_activity, print_logs
+from logger import log_activity
 
 # Use the same DB path logic as database.py
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +31,7 @@ def get_db_connection():
     return sqlite3.connect(DATABASE_NAME)
 
 # === Traveller Operations ===
-def add_traveller(current_user):
+def add_traveller():
     conn = get_db_connection()
     print("Enter traveller details:\n")
 
@@ -1647,7 +1647,7 @@ def update_lname_system_admin(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update system admin last name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print(f"An unexpected error occurred: {str(e)}") 
     finally:
         conn.close()
 
@@ -1791,11 +1791,11 @@ def update_own_password_service_engineer(current_user): # CHECK
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT username, password, role FROM users WHERE id = ?", (current_user["id"],))
+        cursor.execute("SELECT username, password, role FROM users WHERE id = ?", (current_user[id],))
         result = cursor.fetchone()
 
         if not result:
-            log_activity(current_user["username"], f"Failed to update service engineer password - user ID {current_user["id"]} not found")
+            log_activity(current_user["username"], f"Failed to update service engineer password - user ID {current_user[id]} not found")
             print("User with that ID not found.")
             conn.close()
             return
@@ -1807,12 +1807,12 @@ def update_own_password_service_engineer(current_user): # CHECK
         user_role = decrypt_data(user_role_encrypted)
 
         if user_role != "engineer":
-            log_activity(current_user["username"], f"Failed to update password - user ID {current_user["id"]} is not a service engineer", suspicious=True)
+            log_activity(current_user["username"], f"Failed to update password - user ID {current_user[id]} is not a service engineer", suspicious=True)
             print("User with that ID is not a Service Engineer.")
             conn.close()
             return
 
-        current_password_input = input(f"Enter the current password for service engineer ID {current_user["id"]}: ")
+        current_password_input = input(f"Enter the current password for service engineer ID {current_user[id]}: ")
         if not validate_password(current_password_input):
             log_activity(current_user["username"], f"Failed to update service engineer password - invalid format: {current_password_input}", suspicious=True)
             print("Invalid password format. Please use 12-30 alphanumeric characters, with at least one uppercase letter, one lowercase letter, and one special character.")
@@ -1820,7 +1820,7 @@ def update_own_password_service_engineer(current_user): # CHECK
             return
 
         if not bcrypt.checkpw(current_password_input.encode('utf-8'), current_password_hash):
-            log_activity(current_user["username"], f"Failed to update service engineer password - incorrect current password for ID {current_user["id"]}", suspicious=True)
+            log_activity(current_user["username"], f"Failed to update service engineer password - incorrect current password for ID {current_user[id]}", suspicious=True)
             print("Incorrect current password.")
             conn.close()
             return
@@ -1832,28 +1832,28 @@ def update_own_password_service_engineer(current_user): # CHECK
             conn.close()
             return
         if bcrypt.checkpw(new_password.encode('utf-8'), current_password_hash):
-            log_activity(current_user["username"], f"Failed to update service engineer password - new password same as current for ID {current_user["id"]}")
+            log_activity(current_user["username"], f"Failed to update service engineer password - new password same as current for ID {current_user[id]}")
             print("New password cannot be the same as the current password.")
             conn.close()
             return
 
         hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
         
-        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, current_user["id"]))
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, current_user[id]))
         conn.commit()
         
         if cursor.rowcount > 0:
-            log_activity(current_user["username"], f"Successfully updated service engineer password for user {current_username} (ID: {current_user["id"]})")
+            log_activity(current_user["username"], f"Successfully updated service engineer password for user {current_username} (ID: {current_user[id]})")
             print("Password updated successfully.")
         else:
-            log_activity(current_user["username"], f"Failed to update service engineer password - no rows affected for ID {current_user["id"]}", suspicious=True)
+            log_activity(current_user["username"], f"Failed to update service engineer password - no rows affected for ID {current_user[id]}", suspicious=True)
             print("Failed to update password - no changes made to database.")
             
     except sqlite3.Error as e:
-        log_activity(current_user["username"], f"Failed to update service engineer password - database error for ID {current_user["id"]}", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to update service engineer password - database error for ID {current_user[id]}", f"Error: {str(e)}", suspicious=True)
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
-        log_activity(current_user["username"], f"Failed to update service engineer password - unexpected error for ID {current_user["id"]}", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to update service engineer password - unexpected error for ID {current_user[id]}", f"Error: {str(e)}", suspicious=True)
         print(f"An unexpected error occurred: {str(e)}")
     finally:
         conn.close()
