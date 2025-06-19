@@ -605,6 +605,15 @@ def update_scooter(current_user):
         conn.close()
         print("Scooter updated.")
         return True
+    
+    except sqlite3.Error as e:
+        print(f"Database error occurred: {str(e)}")
+        log_activity(decrypt_data(current_user["username"]), "Failed to update scooter - database error", f"Error: {str(e)}", suspicious=True)
+        return False
+    except Exception as e:
+        log_activity(decrypt_data(current_user["username"]), "Failed to update scooter - unexpected error", f"Error: {str(e)}", suspicious=True)
+        print(f"An unexpected error occurred: {str(e)}")
+        return False
 
 def update_scooter_by_engineer():
     scooter_id = input("Enter the Scooter ID to update: ").strip()
@@ -670,15 +679,6 @@ def update_scooter_by_engineer():
     print("Scooter updated.")
     return True
 
-
-    except sqlite3.Error as e:
-        print(f"Database error occurred: {str(e)}")
-        log_activity(decrypt_data(current_user["username"]), "Failed to update scooter - database error", f"Error: {str(e)}", suspicious=True)
-        return False
-    except Exception as e:
-        log_activity(decrypt_data(current_user["username"]), "Failed to update scooter - unexpected error", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
-        return False
 
 def delete_scooter(current_user):
     while strike_count < 4:
