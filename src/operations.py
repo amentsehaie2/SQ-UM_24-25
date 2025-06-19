@@ -1126,7 +1126,7 @@ def delete_service_engineer(current_user): # WERKT VOLLEDIG
             conn.commit()
             return False
         if confirm == "yes":
-            cursor.execute("DELETE FROM users WHERE id=?", (service_engineer_id,))
+            cursor.execute("DELETE FROM users WHERE id=?", (user_id,))
             conn.commit()
 
             if cursor.rowcount == 0:
@@ -1140,8 +1140,6 @@ def delete_service_engineer(current_user): # WERKT VOLLEDIG
                 log_activity(current_user["username"], "Deleted service engineer", "Success", suspicious=False)
                 conn.close()
                 return True
-                log_activity(current_user["username"], f"Successfully deleted service engineer {current_username} (ID: {user_id})")
-                print("Service engineer deleted successfully.")
             else:
                 log_activity(current_user["username"], f"Failed to delete service engineer - no rows affected for ID {user_id}", suspicious=True)
                 print("Failed to delete service engineer - no changes made to database.")
@@ -2460,39 +2458,39 @@ def revoke_restore_code_db(code):
 
 # === Operationele wrappers voor menu (met rol-check!) ===
 
-def make_backup(current_user):
-    if current_user["role"] not in ["super_admin", "system_admin"]:
-        print("Permission denied: Alleen Super Admin/System Admin mag backups maken!")
-        return
-    backup_name = create_backup()
-    print(f"Backup gemaakt: {backup_name}")
+# def make_backup(current_user):
+#     if current_user["role"] not in ["super_admin", "system_admin"]:
+#         print("Permission denied: Alleen Super Admin/System Admin mag backups maken!")
+#         return
+#     backup_name = create_backup()
+#     print(f"Backup gemaakt: {backup_name}")
 
-def generate_restore_code(current_user):
-    if current_user["role"] != "super_admin":
-        print("Permission denied: Alleen Super Admin mag restore-codes genereren!")
-        return
-    sysadmin = input("Voor welke System Admin? Username: ").strip()
-    backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
-    generate_restore_code_db(sysadmin, backup_name)
+# def generate_restore_code(current_user):
+#     if current_user["role"] != "super_admin":
+#         print("Permission denied: Alleen Super Admin mag restore-codes genereren!")
+#         return
+#     sysadmin = input("Voor welke System Admin? Username: ").strip()
+#     backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
+#     generate_restore_code_db(sysadmin, backup_name)
 
-def restore_backup(current_user):
-    if current_user["role"] != "system_admin":
-        print("Alleen System Admin mag een restore uitvoeren!")
-        return
-    code = input("Voer restore-code in: ").strip()
-    ok, backup_name = use_restore_code_db(current_user["username"], code)
-    if not ok:
-        log_activity(current_user["username"], f"Restore attempt FAILED met code {code}", suspicious=True)
-        print("Restore-code ongeldig of niet voor deze gebruiker!")
-        return
-    restore_backup_by_name(current_user["username"], backup_name)
+# def restore_backup(current_user):
+#     if current_user["role"] != "system_admin":
+#         print("Alleen System Admin mag een restore uitvoeren!")
+#         return
+#     code = input("Voer restore-code in: ").strip()
+#     ok, backup_name = use_restore_code_db(current_user["username"], code)
+#     if not ok:
+#         log_activity(current_user["username"], f"Restore attempt FAILED met code {code}", suspicious=True)
+#         print("Restore-code ongeldig of niet voor deze gebruiker!")
+#         return
+#     restore_backup_by_name(current_user["username"], backup_name)
 
-def revoke_restore_code(current_user):
-    if current_user["role"] != "super_admin":
-        print("Alleen Super Admin mag restore-codes intrekken!")
-        return
-    code = input("Welke restore-code intrekken? ").strip()
-    revoke_restore_code_db(code)
+# def revoke_restore_code(current_user):
+#     if current_user["role"] != "super_admin":
+#         print("Alleen Super Admin mag restore-codes intrekken!")
+#         return
+#     code = input("Welke restore-code intrekken? ").strip()
+#     revoke_restore_code_db(code)
 
 if __name__ == "__main__":
 

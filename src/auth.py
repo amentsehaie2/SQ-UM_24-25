@@ -57,20 +57,29 @@ def get_all_users_from_db():
     return users
 
 def login():
-    try:
+    MAX_STRIKES = 4
+    strike_count = 0
+    while strike_count < MAX_STRIKES:
         username_input = input("Username: ").strip()
         if not isinstance(username_input, str) or username_input == "":
-            raise ValueError("Username moet een niet-lege tekst zijn.")
-    except ValueError as e:
-        print(e)
+            print("Username moet een niet-lege tekst zijn.")
+            strike_count += 1
+        else:
+            break
+    else:
+        print("Te veel ongeldige pogingen voor gebruikersnaam. Probeer het later opnieuw.")
         return None
-    
-    try:
+
+    strike_count = 0
+    while strike_count < MAX_STRIKES:
         password_input = input("Password: ").strip()
         if not isinstance(password_input, str) or password_input == "":
-            raise ValueError("Password moet een niet-lege tekst zijn.")
-    except ValueError as e:
-        print(e)
+            print("Password moet een niet-lege tekst zijn.")
+            strike_count += 1
+        else:
+            break
+    else:
+        print("Te veel ongeldige pogingen voor wachtwoord. Probeer het later opnieuw.")
         return None
 
     if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
