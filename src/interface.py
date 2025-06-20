@@ -47,7 +47,7 @@ def main_menu(user):
     role = user["role"]
     if role == "super_admin":
         super_admin_menu(user)
-    elif role == "system_admin":
+    elif role == "system_admin" or role == "admin":
         system_admin_menu(user)
     elif role == "engineer" or role == "service_engineer":
         service_engineer_menu(user)
@@ -63,7 +63,7 @@ def super_admin_menu(user):
         print("2. Traveller Management")
         print("3. Scooter Management")
         print("4. System Administration")
-        print("5. Uitloggen")
+        print("5. Logout")
         choice = get_int_input("Select a category (1-5): ", 1, 5, user)
         if choice is None:
             break
@@ -93,7 +93,7 @@ def user_management_menu(current_user):
         print("8. Reset Service Engineer password")
 
         is_super_admin = current_user["role"] == "super_admin"
-        is_system_admin = current_user["role"] == "system_admin"
+        is_system_admin = current_user["role"] == "system_admin" or current_user["role"] == "admin"
 
         if is_super_admin:
             print("9. Add System Administrator")
@@ -103,12 +103,12 @@ def user_management_menu(current_user):
             print("13. Update System Admin last name")
             print("14. Delete System Administrator")
             print("15. Reset System Admin password")
-            print("16. Terug")
+            print("16. Back")
             min_opt, max_opt = 1, 16
         else:
             print("9. Update your own profile")
             print("10. Delete your own account")
-            print("11. Terug")
+            print("11. Back")
             min_opt, max_opt = 1, 11
 
         choice = get_int_input("Select an option: ", min_opt, max_opt, current_user)
@@ -148,7 +148,13 @@ def user_management_menu(current_user):
         elif is_system_admin and choice == 9:
             update_own_system_admin_profile(current_user)
         elif is_system_admin and choice == 10:
-            delete_own_system_admin_account(current_user)
+            account_deleted = delete_own_system_admin_account(current_user)
+            if account_deleted:
+                # Immediate logout & break from all menus
+                main()
+                # logout(current_user)
+                # print("You have been logged out because your account was deleted.")
+                # os._exit(0)  # Force exit entire program/process
         elif (is_super_admin and choice == 16) or (is_system_admin and choice == 11):
             break
         else:
@@ -162,7 +168,7 @@ def traveller_management_menu(user):
         print("2. Update Traveller")
         print("3. Delete Traveller")
         print("4. Search Traveller")
-        print("5. Terug")
+        print("5. Back")
         choice = get_int_input("Select an option (1-5): ", 1, 5, user)
         if choice is None:
             break
@@ -187,7 +193,7 @@ def scooter_management_menu(current_user):
         print("2. Update Scooter")
         print("3. Delete Scooter")
         print("4. Search Scooter")
-        print("5. Terug")
+        print("5. Back")
         choice = get_int_input("Select an option (1-5): ", 1, 5, current_user)
         if choice is None:
             break
@@ -251,7 +257,7 @@ def system_admin_menu(user):
         print("2. Traveller Management")
         print("3. Scooter Management")
         print("4. System Administration")
-        print("5. Uitloggen")
+        print("5. Logout")
         choice = get_int_input("Select an option (1-5): ", 1, 5, user)
         if choice is None:
             break
@@ -270,7 +276,6 @@ def system_admin_menu(user):
             print("Invalid option. Please try again.")
             log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
 
-
 def system_administration_menu(current_user):
     while True:
         print("\n--- System Administration ---")
@@ -280,10 +285,10 @@ def system_administration_menu(current_user):
         if current_user["role"] == "super_admin":
             print("4. Generate restore-code for System Administrator")
             print("5. Revoke restore-code for System Administrator")
-            print("6. Terug")
+            print("6. Back")
             min_opt, max_opt = 1, 6
-        else:  # Alleen opties voor system_admin
-            print("4. Terug")
+        else:  # Only options for system_admin
+            print("4. Back")
             min_opt, max_opt = 1, 4
 
         choice = get_int_input(f"Select an option ({min_opt}-{max_opt}): ", min_opt, max_opt, current_user)
@@ -292,83 +297,83 @@ def system_administration_menu(current_user):
         if choice == 1:
             print_logs()
         elif choice == 2:
-            update_own_username_system_admin(current_user)
+            backup_name = make_backup(current_user)
+            print(f"Backup created: {backup_name}")
         elif choice == 3:
             if current_user["role"] in ["system_admin", "super_admin"]:
                 strike_count = 0
                 while strike_count < 4:
-                    restore_code = input("Voer je restore-code in: ").strip()
+                    restore_code = input("Enter your restore-code: ").strip()
                     if isinstance(restore_code, str) and restore_code:
                         ok, backup_name = use_restore_code_db(decrypt_data(current_user["username"]), restore_code, current_user)
                         if not ok:
-                            print("Restore-code ongeldig of niet voor deze gebruiker!")
+                            print("Restore-code invalid or not for this user!")
                             strike_count += 1
                         else:
                             restore_backup_by_name(current_user, backup_name)
                             break
                     else:
-                        print("Restore-code mag niet leeg zijn.")
+                        print("Restore-code cannot be empty.")
                         strike_count += 1
                 if strike_count >= 4:
-                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
+                    print("Too many invalid attempts. Returning to menu.")
             else:
                 print("Only a System Administrator can restore a backup!")
                 log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif current_user["role"] == "super_admin" and choice == 4:
-            # --- Gebruikersnaam checken ---
+            # --- Username check ---
             max_strikes = 4
             strike_count = 0
             while strike_count < max_strikes:
-                target_sysadmin = input("Voor welke System Admin? Username: ").strip()
+                target_sysadmin = input("For which System Admin? Username: ").strip()
                 if not (isinstance(target_sysadmin, str) and target_sysadmin):
-                    print("Gebruikersnaam mag niet leeg zijn.")
+                    print("Username cannot be empty.")
                     strike_count += 1
                     continue
                 if get_user_by_username(target_sysadmin) is None:
-                    print("Gebruiker bestaat niet.")
+                    print("User does not exist.")
                     strike_count += 1
                     continue
                 break
             else:
-                print("Te veel ongeldige pogingen. Keer terug naar menu.")
+                print("Too many invalid attempts. Returning to menu.")
                 continue
 
-            # --- Backup-bestandsnaam checken ---
+            # --- Backup file name check ---
             strike_count = 0
             while strike_count < max_strikes:
-                backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
+                backup_name = input("Which backup (full file name)? ").strip()
                 if not (isinstance(backup_name, str) and backup_name):
-                    print("Backupnaam mag niet leeg zijn.")
+                    print("Backup name cannot be empty.")
                     strike_count += 1
                     continue
                 backup_path = os.path.join(BACKUP_DIR, backup_name)
                 if not os.path.exists(backup_path):
-                    print("Backup-bestand bestaat niet.")
+                    print("Backup file does not exist.")
                     strike_count += 1
                     continue
                 break
             else:
-                print("Te veel ongeldige pogingen. Keer terug naar menu.")
+                print("Too many invalid attempts. Returning to menu.")
                 continue
 
             generate_restore_code_db(target_sysadmin, backup_name, current_user)
         elif current_user["role"] == "super_admin" and choice == 5:
             strike_count = 0
             while strike_count < 4:
-                code = input("Welke restore-code intrekken? ").strip()
+                code = input("Which restore-code to revoke? ").strip()
                 if isinstance(code, str) and code:
                     revoke_restore_code_db(code, current_user)
                     break
                 else:
-                    print("Code mag niet leeg zijn.")
+                    print("Code cannot be empty.")
                     strike_count += 1
             if strike_count >= 4:
-                print("Te veel ongeldige pogingen. Keer terug naar menu.")
+                print("Too many invalid attempts. Returning to menu.")
         elif (current_user["role"] == "super_admin" and choice == 6) or (current_user["role"] == "system_admin" and choice == 4):
             break
         else:
             print("Invalid option. Please try again.")
-
 
 def service_engineer_menu(user):
     while True:
@@ -376,7 +381,7 @@ def service_engineer_menu(user):
         print("1. Search Scooter")
         print("2. Update Scooter attributes")
         print("3. Update own password")
-        print("4. Uitloggen")
+        print("4. Logout")
         choice = get_int_input("Select an option (1-4): ", 1, 4, user)
         if choice is None:
             break

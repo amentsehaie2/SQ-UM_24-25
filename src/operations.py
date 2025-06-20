@@ -1856,8 +1856,8 @@ def reset_system_admin_password(current_user): # WERKT VOLLEDIG
         conn.close()
 
 def update_own_system_admin_profile(current_user):
-    """Allows a system admin to update their own username, password, first name, and last name."""
-    if current_user["role"] != "system_admin":
+    """Allows a system admin to update their own profile (username, password, first name, last name)."""
+    if current_user["role"] != "system_admin" and current_user["role"] != "admin":
         print("Only a system administrator can update their own profile.")
         return
 
@@ -1865,82 +1865,115 @@ def update_own_system_admin_profile(current_user):
     cursor = conn.cursor()
     user_id = current_user['id']
 
-    # --- Username update ---
-    for _ in range(4):
-        new_username = input("New username (leave blank to skip): ").strip()
+    # --- Update username ---
+    strike_count = 0
+    while strike_count < 4:
+        new_username = input("New username (leave empty to skip): ").strip()
         if new_username == "":
             break
-        if not validate_username(new_username):
+        if not isinstance(new_username, str) or not validate_username(new_username):
             print("Invalid username format.")
+            strike_count += 1
             continue
         # Check uniqueness
         cursor.execute("SELECT id, username FROM users WHERE id != ?", (user_id,))
         usernames = [decrypt_data(row[1]) for row in cursor.fetchall()]
         if new_username in usernames:
             print("Username is already taken.")
+            strike_count += 1
             continue
         cursor.execute("UPDATE users SET username = ? WHERE id = ?", (encrypt_data(new_username), user_id))
         current_user["username"] = new_username  # Update session
         print("Username updated.")
         break
+    if strike_count >= 4:
+        print("Too many invalid attempts for username.")
+        conn.close()
+        return
 
-    # --- First name update ---
-    for _ in range(4):
-        new_fname = input("New first name (leave blank to skip): ").strip()
+    # --- Update first name ---
+    strike_count = 0
+    while strike_count < 4:
+        new_fname = input("New first name (leave empty to skip): ").strip()
         if new_fname == "":
             break
-        if not validate_fname(new_fname):
+        if not isinstance(new_fname, str) or not validate_fname(new_fname):
             print("Invalid first name format.")
+            strike_count += 1
             continue
         cursor.execute("UPDATE users SET first_name = ? WHERE id = ?", (encrypt_data(new_fname), user_id))
         print("First name updated.")
         break
+    if strike_count >= 4:
+        print("Too many invalid attempts for first name.")
+        conn.close()
+        return
 
-    # --- Last name update ---
-    for _ in range(4):
-        new_lname = input("New last name (leave blank to skip): ").strip()
+    # --- Update last name ---
+    strike_count = 0
+    while strike_count < 4:
+        new_lname = input("New last name (leave empty to skip): ").strip()
         if new_lname == "":
             break
-        if not validate_lname(new_lname):
+        if not isinstance(new_lname, str) or not validate_lname(new_lname):
             print("Invalid last name format.")
+            strike_count += 1
             continue
         cursor.execute("UPDATE users SET last_name = ? WHERE id = ?", (encrypt_data(new_lname), user_id))
         print("Last name updated.")
         break
+    if strike_count >= 4:
+        print("Too many invalid attempts for last name.")
+        conn.close()
+        return
 
-    # --- Password update ---
-    for _ in range(4):
-        old_password = input("Current password (leave blank to skip): ").strip()
+    # --- Update password ---
+    strike_count = 0
+    while strike_count < 4:
+        old_password = input("Current password (leave empty to skip): ").strip()
         if old_password == "":
             break
         cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
         result = cursor.fetchone()
         if not result or not bcrypt.checkpw(old_password.encode('utf-8'), result[0]):
             print("Current password is incorrect.")
+            strike_count += 1
             continue
-        for _ in range(4):
+        # Ask for new password
+        pw_strike = 0
+        while pw_strike < 4:
             new_password = input("New password: ").strip()
-            if not validate_password(new_password):
+            if not isinstance(new_password, str) or not validate_password(new_password):
                 print("Invalid password format.")
+                pw_strike += 1
                 continue
             if bcrypt.checkpw(new_password.encode('utf-8'), result[0]):
                 print("New password cannot be the same as the old password.")
+                pw_strike += 1
                 continue
             hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
             cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, user_id))
             print("Password updated.")
             break
+        if pw_strike >= 4:
+            print("Too many invalid attempts for password.")
+            conn.close()
+            return
         break
+    if strike_count >= 4:
+        print("Too many invalid attempts for password.")
+        conn.close()
+        return
 
     conn.commit()
     conn.close()
     print("Your profile has been updated.")
 
 def delete_own_system_admin_account(current_user):
-    """Laat een system admin z'n eigen account verwijderen na wachtwoordcheck."""
-    if current_user["role"] != "system_admin":
-        print("Alleen een system administrator kan zijn eigen account verwijderen.")
-        return
+    """Allows a system admin to delete their own account after password confirmation."""
+    if current_user["role"] != "system_admin" and current_user["role"] != "admin":
+        print("Only a system administrator can delete their own account.")
+        return False
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1948,37 +1981,41 @@ def delete_own_system_admin_account(current_user):
 
     strike_count = 0
     while strike_count < 4:
-        password = input("Voer je wachtwoord in ter bevestiging: ").strip()
+        password = input("Enter your password to confirm: ").strip()
         if not isinstance(password, str) or password == "":
-            print("Wachtwoord mag niet leeg zijn.")
+            print("Password cannot be empty.")
             strike_count += 1
             continue
         cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
         result = cursor.fetchone()
         if not result or not bcrypt.checkpw(password.encode('utf-8'), result[0]):
-            print("Wachtwoord klopt niet.")
+            print("Password is incorrect.")
             strike_count += 1
             continue
         break
     if strike_count >= 4:
-        print("Te veel ongeldige pogingen. Account wordt NIET verwijderd.")
+        print("Too many invalid attempts. Account will NOT be deleted.")
         conn.close()
-        return
+        return False
 
     strike_count = 0
     while strike_count < 4:
-        confirmation = input("Weet je zeker dat je je account wilt verwijderen? Typ 'ja' om te bevestigen: ").strip().lower()
-        if confirmation == "ja":
+        confirmation = input("Are you sure you want to delete your account? Type 'yes' to confirm: ").strip().lower()
+        if confirmation == "yes":
             cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
             conn.commit()
-            print("Je account is verwijderd. Je wordt nu uitgelogd.")
-            break
+            print("Your account has been deleted. You will now be logged out.")
+            conn.close()
+            return True  # ACCOUNT DELETED!
         else:
-            print("Verwijderen niet bevestigd. Typ 'ja' om door te gaan.")
+            print("Deletion not confirmed. Type 'yes' to proceed.")
             strike_count += 1
     if strike_count >= 4:
-        print("Te veel ongeldige pogingen. Account wordt NIET verwijderd.")
+        print("Too many invalid attempts. Account will NOT be deleted.")
     conn.close()
+    return False
+
+
 
 
 # === Backup Functions ===
@@ -2002,7 +2039,7 @@ def restore_backup_by_name(current_user, backup_name):
     """Restore zip-backup, only system admins can do this, through a code."""
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     if not os.path.exists(backup_path):
-        print("Backup niet gevonden!")
+        print("Backup not found!")
         log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
         return False
     # Verwijder bestaande .db bestanden
@@ -2012,8 +2049,8 @@ def restore_backup_by_name(current_user, backup_name):
     shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
     if os.path.exists(backup_path):
         os.remove(backup_path)
-        log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
-        print(f"Backup '{backup_name}' succesvol hersteld.")
+        log_activity(current_user, f"Backup restored: {backup_name}", suspicious=False)
+        print(f"Backup '{backup_name}' succesfully restored.")
         return True
     else:
         log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
@@ -2025,21 +2062,21 @@ def generate_restore_code_db(target_system_admin, backup_name, current_user):
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     with open(RESTORE_CODE_FILE, "a", encoding="utf-8") as f:
         f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
-    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin} backup: {backup_name}", suspicious=False)
-    print(f"Restore-code voor {target_system_admin}: {code}")
+    log_activity("super_admin", f"Restore-code generated for {target_system_admin} backup: {backup_name}", suspicious=False)
+    print(f"Restore-code for {target_system_admin}: {code}")
     return code
 
 def use_restore_code_db(current_username, code, current_user):
     """
-    Valideert een restore-code, koppelt aan de juiste System Admin & backup,
-    markeert de code als gebruikt. Returnt (True, backup_name) bij succes, anders (False, None).
+    Validates a restore code, links it to the correct System Admin & backup,
+    marks the code as used. Returns (True, backup_name) on success, otherwise (False, None).
     """
     lines = []
     found = False
     backup_name = None
     if not os.path.exists(RESTORE_CODE_FILE):
-        print("Restore-codes-bestand niet gevonden!")
-        log_activity(current_username, "use_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)
+        print("Restore codes file not found!")
+        log_activity(current_username, "use_restore_code_db", "Restore codes file not found", suspicious=True)
         return False, None
     with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -2055,6 +2092,23 @@ def use_restore_code_db(current_username, code, current_user):
     return found, backup_name
 
 def revoke_restore_code_db(code, current_user):
+    if not os.path.exists(RESTORE_CODE_FILE):
+        print("Restore codes file not found!")
+        log_activity("super_admin", "revoke_restore_code_db", "Restore codes file not found", suspicious=True)
+        return
+    lines = []
+    with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
+        for line in lines:
+            code_line, sysadmin, backup, used = line.strip().split("|")
+            if code_line == code and used == "unused":
+                f.write(f"{code}|{sysadmin}|{backup}|revoked\n")
+            else:
+                f.write(line)
+    print(f"Restore code '{code}' has been revoked.")
+    log_activity("super_admin", f"Restore code revoked: {code}", suspicious=False)
+
     if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore-codes-bestand niet gevonden!")
         log_activity("super_admin", "revoke_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)

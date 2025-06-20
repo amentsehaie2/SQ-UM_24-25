@@ -64,24 +64,24 @@ def login():
     while strike_count < MAX_STRIKES:
         username_input = input("Username: ").strip()
         if not isinstance(username_input, str) or username_input == "":
-            print("Username moet een niet-lege tekst zijn.")
+            print("Username must be a non-empty string.")
             strike_count += 1
         else:
             break
     else:
-        print("Te veel ongeldige pogingen voor gebruikersnaam. Probeer het later opnieuw.")
+        print("Too many invalid attempts for username. Please try again later.")
         return None
 
     strike_count = 0
     while strike_count < MAX_STRIKES:
         password_input = input("Password: ").strip()
         if not isinstance(password_input, str) or password_input == "":
-            print("Password moet een niet-lege tekst zijn.")
+            print("Password must be a non-empty string.")
             strike_count += 1
         else:
             break
     else:
-        print("Te veel ongeldige pogingen voor wachtwoord. Probeer het later opnieuw.")
+        print("Too many invalid attempts for password. Please try again later.")
         return None
 
     # Super Admin login
@@ -92,7 +92,7 @@ def login():
         show_suspicious_alert()
         return user
 
-    # Zoek user in database
+    # Look up user in database
     user_db = get_user_by_username(username_input)
     if user_db:
         if verify_password(password_input, user_db["password"]):
@@ -115,7 +115,6 @@ def login():
     print("User not found.")
     return None
 
-
 def logout(user):
     log_action(user["username"], "User logged out", False)
-    print(f"{user['username']} is uitgelogd.")
+    print(f"{user['username']} has been logged out.")
