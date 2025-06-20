@@ -292,8 +292,25 @@ def add_scooter(current_user):
     print("Enter scooter details:")
     username = current_user["username"] if current_user and "username" in current_user else "unknown"
 
-    def get_valid_input(prompt_text, validate_func, log_field, cast_func=None):
+    # Format descriptions for each field
+    field_formats = {
+        "brand": "Any string.",
+        "model": "Non-empty string.",
+        "serial_number": "10–17 uppercase letters or digits.",
+        "top_speed": "In km/h (e.g., 45, 100).",
+        "battery_capacity": "Positive integer (Wh).",
+        "state_of_charge": "Integer between 0 and 100.",
+        "target_range": "Positive integer (e.g., 15000).",
+        "location": "Latitude,longitude both with exactly 5 decimal places. Example: 51.92250,4.47917",
+        "out_of_service": "True or false",
+        "mileage": "In kilometres",
+        "last_service_date": "Date in format YYYY-MM-DD."
+    }
+
+    def get_valid_input(prompt_text, validate_func, log_field, cast_func=None, format_hint=None):
         strikes = 0
+        if format_hint:
+            print(f"Format: {format_hint}")
         while strikes < 3:
             value = input(prompt_text)
             try:
@@ -312,31 +329,31 @@ def add_scooter(current_user):
         log_activity(username, "add_scooter", f"Too many strikes for {log_field}", suspicious=True)
         return None
 
-    brand = get_valid_input("Brand: ", validate_brand, "brand")
+    brand = get_valid_input("Brand: ", validate_brand, "brand", format_hint=field_formats["brand"])
     if brand is None:
         return
-    model = get_valid_input("Model: ", validate_model, "model")
+    model = get_valid_input("Model: ", validate_model, "model", format_hint=field_formats["model"])
     if model is None:
         return
-    serial_number = get_valid_input("Serial number: ", validate_serial_number, "serial number")
+    serial_number = get_valid_input("Serial number: ", validate_serial_number, "serial number", format_hint=field_formats["serial_number"])
     if serial_number is None:
         return
-    top_speed = get_valid_input("Top speed (integer): ", validate_top_speed, "top speed", int)
+    top_speed = get_valid_input("Top speed (integer): ", validate_top_speed, "top speed", int, field_formats["top_speed"])
     if top_speed is None:
         return
-    battery_capacity = get_valid_input("Battery capacity (integer): ", validate_battery_capacity, "battery capacity", int)
+    battery_capacity = get_valid_input("Battery capacity (integer): ", validate_battery_capacity, "battery capacity", int, field_formats["battery_capacity"])
     if battery_capacity is None:
         return
-    state_of_charge = get_valid_input("State of charge (0-100): ", validate_SoC, "state of charge", int)
+    state_of_charge = get_valid_input("State of charge (0-100): ", validate_SoC, "state of charge", int, field_formats["state_of_charge"])
     if state_of_charge is None:
         return
-    target_range = get_valid_input("Target range (integer): ", validate_target_range, "target range", int)
+    target_range = get_valid_input("Target range (integer): ", validate_target_range, "target range", int, field_formats["target_range"])
     if target_range is None:
         return
-    location = get_valid_input("Location (latitude,longitude): ", validate_location, "location")
+    location = get_valid_input("Location (latitude,longitude): ", validate_location, "location", format_hint=field_formats["location"])
     if location is None:
         return
-    out_of_service_input = get_valid_input("Out of service (True/False): ", lambda x: x.lower() in {"true", "false"}, "out of service")
+    out_of_service_input = get_valid_input("Out of service (True/False): ", lambda x: x.lower() in {"true", "false"}, "out of service", format_hint=field_formats["out_of_service"])
     if out_of_service_input is None:
         return
     out_of_service = out_of_service_input.lower() == "true"
@@ -344,10 +361,10 @@ def add_scooter(current_user):
         print("Invalid out of service value. Returning to previous menu.")
         log_activity(username, "add_scooter", "Invalid out_of_service value", suspicious=True)
         return
-    mileage = get_valid_input("Mileage (integer): ", validate_mileage, "mileage", int)
+    mileage = get_valid_input("Mileage (integer): ", validate_mileage, "mileage", int, field_formats["mileage"])
     if mileage is None:
         return
-    last_service_date = get_valid_input("Last service date (YYYY-MM-DD): ", validate_last_maint, "last service date")
+    last_service_date = get_valid_input("Last service date (YYYY-MM-DD): ", validate_last_maint, "last service date", format_hint=field_formats["last_service_date"])
     if last_service_date is None:
         return
 
@@ -421,10 +438,10 @@ def search_scooters(current_user):
                 f"Battery: {r[5]}, SoC: {r[6]}, Range: {r[7]}, Location: {r[8]}, "
                 f"Out of Service: {r[9]}, Mileage: {r[10]}, Last Service: {r[11]}"
             )
-            log_activity(decrypt_data(current_user["username"]), "search_scooters", f"Scooter ID: {r[0]}")
+        log_activity(current_user["username"], "search_scooters", f"Scooter ID: {r[0]}", suspicious=False)
     else:
         print("No matching scooters found.")
-        log_activity(decrypt_data(current_user["username"]), "search_scooters", "No matching scooters found", suspicious=True)
+        log_activity(current_user["username"], "search_scooters", "No matching scooters found", suspicious=True)
     return results
     
 def update_scooter(current_user):
@@ -1407,6 +1424,10 @@ def update_system_admin_password(current_user):
 
     old_password = input("Current Password: ")
     new_password = input("New Password: ")
+    if not validate_password(old_password):
+        log_activity(current_user["username"], f"Failed to update system admin password - invalid current password format for user: {user_id}", suspicious=True)
+        print("Invalid password format. Please use 12-30 alphanumeric characters, with at least one uppercase letter, one lowercase letter, and one special character.")
+        return
     if not validate_password(new_password):
         log_activity(current_user["username"], f"Failed to update system admin password - invalid new password format for user: {user_id}", suspicious=True)
         print("Invalid password format. Please use 12-30 alphanumeric characters, with at least one uppercase letter, one lowercase letter, and one special character.")
@@ -2083,12 +2104,14 @@ def use_restore_code_db(current_username, code, current_user):
     with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
         for line in lines:
             code_line, sysadmin, backup, used = line.strip().split("|")
-            if code_line == code and sysadmin == current_username and used == "unused":
+            if code_line == code and sysadmin == decrypt_data(current_username) and used == "unused":
                 found = True
                 backup_name = backup
                 f.write(f"{code}|{sysadmin}|{backup}|used\n")
             else:
                 f.write(line)
+    print(current_username)
+    print(sysadmin)
     return found, backup_name
 
 def revoke_restore_code_db(code, current_user):
@@ -2111,7 +2134,7 @@ def revoke_restore_code_db(code, current_user):
 
     if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore-codes-bestand niet gevonden!")
-        log_activity("super_admin", "revoke_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)
+        log_activity("super_admin", "revoke_restore_code_db", "Restore-codes-file not found", suspicious=True)
         return
     lines = []
     with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
@@ -2123,44 +2146,8 @@ def revoke_restore_code_db(code, current_user):
                 f.write(f"{code}|{sysadmin}|{backup}|revoked\n")
             else:
                 f.write(line)
-    print(f"Restore-code '{code}' ingetrokken.")
+    print(f"Restore-code '{code}' revoked.")
     log_activity("super_admin", f"Restore-code revoked: {code}", suspicious=False)
-
-# === Operationele wrappers voor menu (met rol-check!) ===
-
-# def make_backup(current_user):
-#     if current_user["role"] not in ["super_admin", "system_admin"]:
-#         print("Permission denied: Alleen Super Admin/System Admin mag backups maken!")
-#         return
-#     backup_name = create_backup()
-#     print(f"Backup gemaakt: {backup_name}")
-
-# def generate_restore_code(current_user):
-#     if current_user["role"] != "super_admin":
-#         print("Permission denied: Alleen Super Admin mag restore-codes genereren!")
-#         return
-#     sysadmin = input("Voor welke System Admin? Username: ").strip()
-#     backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
-#     generate_restore_code_db(sysadmin, backup_name)
-
-# def restore_backup(current_user):
-#     if current_user["role"] != "system_admin":
-#         print("Alleen System Admin mag een restore uitvoeren!")
-#         return
-#     code = input("Voer restore-code in: ").strip()
-#     ok, backup_name = use_restore_code_db(current_user["username"], code)
-#     if not ok:
-#         log_activity(current_user["username"], f"Restore attempt FAILED met code {code}", suspicious=True)
-#         print("Restore-code ongeldig of niet voor deze gebruiker!")
-#         return
-#     restore_backup_by_name(current_user["username"], backup_name)
-
-# def revoke_restore_code(current_user):
-#     if current_user["role"] != "super_admin":
-#         print("Alleen Super Admin mag restore-codes intrekken!")
-#         return
-#     code = input("Welke restore-code intrekken? ").strip()
-#     revoke_restore_code_db(code)
 
 if __name__ == "__main__":
 
