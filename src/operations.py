@@ -1790,6 +1790,159 @@ def reset_system_admin_password(current_user): # WERKT VOLLEDIG
     finally:
         conn.close()
 
+def update_own_system_admin_profile(current_user):
+    """Laat een system admin z'n eigen profiel updaten (username, password, fname, lname)."""
+    if current_user["role"] != "system_admin":
+        print("Alleen een system administrator kan zijn eigen profiel aanpassen.")
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    user_id = current_user["id"]
+
+    # --- Gebruikersnaam wijzigen ---
+    strike_count = 0
+    while strike_count < 4:
+        new_username = input("Nieuwe gebruikersnaam (laat leeg om niet te wijzigen): ").strip()
+        if new_username == "":
+            break
+        if not isinstance(new_username, str) or not validate_username(new_username):
+            print("Ongeldig formaat gebruikersnaam.")
+            strike_count += 1
+            continue
+        cursor.execute("SELECT username FROM users WHERE id != ?", (user_id,))
+        usernames = [decrypt_data(row[0]) for row in cursor.fetchall()]
+        if new_username in usernames:
+            print("Gebruikersnaam is al in gebruik.")
+            strike_count += 1
+            continue
+        cursor.execute("UPDATE users SET username = ? WHERE id = ?", (encrypt_data(new_username), user_id))
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen bij gebruikersnaam.")
+        conn.close()
+        return
+
+    # --- Voornaam wijzigen ---
+    strike_count = 0
+    while strike_count < 4:
+        new_fname = input("Nieuwe voornaam (laat leeg om niet te wijzigen): ").strip()
+        if new_fname == "":
+            break
+        if not isinstance(new_fname, str) or not validate_fname(new_fname):
+            print("Ongeldig formaat voornaam.")
+            strike_count += 1
+            continue
+        cursor.execute("UPDATE users SET first_name = ? WHERE id = ?", (encrypt_data(new_fname), user_id))
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen bij voornaam.")
+        conn.close()
+        return
+
+    # --- Achternaam wijzigen ---
+    strike_count = 0
+    while strike_count < 4:
+        new_lname = input("Nieuwe achternaam (laat leeg om niet te wijzigen): ").strip()
+        if new_lname == "":
+            break
+        if not isinstance(new_lname, str) or not validate_lname(new_lname):
+            print("Ongeldig formaat achternaam.")
+            strike_count += 1
+            continue
+        cursor.execute("UPDATE users SET last_name = ? WHERE id = ?", (encrypt_data(new_lname), user_id))
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen bij achternaam.")
+        conn.close()
+        return
+
+    # --- Wachtwoord wijzigen ---
+    strike_count = 0
+    while strike_count < 4:
+        old_password = input("Huidig wachtwoord (laat leeg om niet te wijzigen): ").strip()
+        if old_password == "":
+            break
+        cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+        if not result or not bcrypt.checkpw(old_password.encode('utf-8'), result[0]):
+            print("Oud wachtwoord klopt niet.")
+            strike_count += 1
+            continue
+        # Vraag nieuw wachtwoord
+        pw_strike = 0
+        while pw_strike < 4:
+            new_password = input("Nieuw wachtwoord: ").strip()
+            if not isinstance(new_password, str) or not validate_password(new_password):
+                print("Ongeldig formaat wachtwoord.")
+                pw_strike += 1
+                continue
+            if bcrypt.checkpw(new_password.encode('utf-8'), result[0]):
+                print("Nieuw wachtwoord mag niet hetzelfde zijn als het oude wachtwoord.")
+                pw_strike += 1
+                continue
+            hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, user_id))
+            break
+        if pw_strike >= 4:
+            print("Te veel ongeldige pogingen bij wachtwoord.")
+            conn.close()
+            return
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen bij wachtwoord.")
+        conn.close()
+        return
+
+    conn.commit()
+    conn.close()
+    print("Je profiel is bijgewerkt.")
+
+def delete_own_system_admin_account(current_user):
+    """Laat een system admin z'n eigen account verwijderen na wachtwoordcheck."""
+    if current_user["role"] != "system_admin":
+        print("Alleen een system administrator kan zijn eigen account verwijderen.")
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    user_id = current_user["id"]
+
+    strike_count = 0
+    while strike_count < 4:
+        password = input("Voer je wachtwoord in ter bevestiging: ").strip()
+        if not isinstance(password, str) or password == "":
+            print("Wachtwoord mag niet leeg zijn.")
+            strike_count += 1
+            continue
+        cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+        if not result or not bcrypt.checkpw(password.encode('utf-8'), result[0]):
+            print("Wachtwoord klopt niet.")
+            strike_count += 1
+            continue
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen. Account wordt NIET verwijderd.")
+        conn.close()
+        return
+
+    strike_count = 0
+    while strike_count < 4:
+        confirmation = input("Weet je zeker dat je je account wilt verwijderen? Typ 'ja' om te bevestigen: ").strip().lower()
+        if confirmation == "ja":
+            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            print("Je account is verwijderd. Je wordt nu uitgelogd.")
+            break
+        else:
+            print("Verwijderen niet bevestigd. Typ 'ja' om door te gaan.")
+            strike_count += 1
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen. Account wordt NIET verwijderd.")
+    conn.close()
+
+
 # === Backup Functions ===
 def make_backup(current_user):
     """Makes a backup of the database."""

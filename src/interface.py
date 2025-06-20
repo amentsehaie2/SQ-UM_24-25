@@ -11,7 +11,7 @@ from operations import (
     add_system_admin, update_system_admin_username, update_system_admin_password,
     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
     make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db, use_restore_code_db,
-    list_users, BACKUP_DIR
+    list_users, BACKUP_DIR, update_own_system_admin_profile, delete_own_system_admin_account
 )
 from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
 
@@ -90,7 +90,10 @@ def user_management_menu(current_user):
         print("6. Update Service Engineer last name")
         print("7. Delete Service Engineer")
         print("8. Reset Service Engineer password")
+
         is_super_admin = current_user["role"] == "super_admin"
+        is_system_admin = current_user["role"] == "system_admin"
+
         if is_super_admin:
             print("9. Add System Administrator")
             print("10. Update System Admin username")
@@ -102,11 +105,15 @@ def user_management_menu(current_user):
             print("16. Terug")
             min_opt, max_opt = 1, 16
         else:
-            print("9. Terug")
-            min_opt, max_opt = 1, 9
+            print("9. Update your own profile")
+            print("10. Delete your own account")
+            print("11. Terug")
+            min_opt, max_opt = 1, 11
+
         choice = get_int_input("Select an option: ", min_opt, max_opt, current_user)
         if choice is None:
             break
+
         if choice == 1:
             list_users()
         elif choice == 2:
@@ -137,7 +144,11 @@ def user_management_menu(current_user):
             delete_system_admin(current_user)
         elif is_super_admin and choice == 15:
             reset_system_admin_password(current_user)
-        elif (is_super_admin and choice == 16) or (not is_super_admin and choice == 9):
+        elif is_system_admin and choice == 9:
+            update_own_system_admin_profile(current_user)
+        elif is_system_admin and choice == 10:
+            delete_own_system_admin_account(current_user)
+        elif (is_super_admin and choice == 16) or (is_system_admin and choice == 11):
             break
         else:
             print("Invalid option. Please try again.")
