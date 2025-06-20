@@ -173,14 +173,26 @@ def validate_last_maint(date) -> bool:
         return False
 
 def validate_password(password):
+    """
+    Validates if the password:
+    - has a length of at least 12 and at most 30 characters,
+    - contains only allowed characters,
+    - contains at least one lowercase letter, one uppercase letter, one digit, and one special character.
+    """
+    if not isinstance(password, str):
+        return False
     if not (12 <= len(password) <= 30):
         return False
-    if not re.search(r"[A-Z]", password):
+    allowed_specials = r"~!@#$%&_\-\+=`|\(\)\{\}\[\]:;'<>,\.?/"
+    pattern = rf"^[A-Za-z0-9{re.escape(allowed_specials)}]+$"
+    if not re.fullmatch(pattern, password):
         return False
-    if not re.search(r"[a-z]", password):
+    if not re.search(r'[a-z]', password):
         return False
-    if not re.search(r"[0-9]", password):
+    if not re.search(r'[A-Z]', password):
         return False
-    if not re.search(r"[~!@#$%&_\-+=`|\\(){}\[\]:;'<>,.?/]", password):
+    if not re.search(r'\d', password):
+        return False
+    if not re.search(f"[{re.escape(allowed_specials)}]", password):
         return False
     return True
