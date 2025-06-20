@@ -38,7 +38,7 @@ def super_admin_menu(current_user):
         print("3. Scooter Management")
         print("4. System Administration")
         print("5. Reset Service Engineer password")
-        print("6. Uitloggen")
+        print("6. Logout")
         choice = input("Select a category (1-6): ")
 
         if choice == "1":
@@ -71,7 +71,7 @@ def user_management_menu(current_user):
         print("9. Delete System Administrator")
         print("10. Update System Administrator password")
         print("11. Reset System Admin password")
-        print("12. Terug")
+        print("12. Back")
         choice = input("Select an option (1-12): ")
 
         if choice == "1":
@@ -108,7 +108,7 @@ def traveller_management_menu(current_user):
         print("2. Update Traveller information")
         print("3. Delete Traveller")
         print("4. Search/Retrieve Traveller information")
-        print("5. Terug")
+        print("5. Back")
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
@@ -131,7 +131,7 @@ def scooter_management_menu(current_user):
         print("2. Update Scooter information")
         print("3. Delete Scooter")
         print("4. Search/Retrieve Scooter information")
-        print("5. Terug")
+        print("5. Back")
         choice = input("Select an option (1-5): ")
 
         if choice == "1":
@@ -156,7 +156,7 @@ def system_admin_menu(current_user):
         print("4. Generate restore-code for System Administrator")
         print("5. Revoke restore-code for System Administrator")
         print("6. Reset Service Engineer password")
-        print("7. Uitloggen")
+        print("7. Logout")
         choice = input("Select an option (1-7): ")
 
         if choice == "1":
@@ -185,7 +185,7 @@ def service_engineer_menu(current_user):
         print("3. Update Service Engineer username")
         print("4. Delete Service Engineer")
         print("5. Reset Service Engineer password")
-        print("6. Uitloggen")
+        print("6. Logout")
         choice = input("Select an option (1-6): ")
 
         if choice == "1":

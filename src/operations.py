@@ -252,59 +252,38 @@ def update_traveller(current_user):
         conn.close()
     
 
-def delete_traveller(current_user):
-
-    while strike_count < 4:
-        try:
-            traveller_id = int(input("Enter the ID of the traveller you want to delete: "))
-            break
-        except ValueError:
-            strike_count += 1
-            log_activity(current_user["username"], f"Strike count: {strike_count}", "Invalid ID format", suspicious=True)
-            print("Invalid ID format. Please enter a number.")  
-    if strike_count == 4:
-        print("You have reached the maximum number of strikes. Please try again later.")
-        log_activity(current_user["username"], f"Strike count: {strike_count}", "Maximum number of strikes reached", suspicious=True)
-        return False
-
+def delete_traveller(current_user=None):
     conn = get_db_connection()
-    cursor = conn.cursor()
+    username = current_user["username"] if current_user and "username" in current_user else "unknown"
 
-    try:
-        cursor.execute("SELECT 1 FROM travellers WHERE traveller_id=?", (traveller_id,))
-        if not cursor.fetchone():
-            print("Traveller ID does not exist.")
-            conn.close()
-            return False
-
-        confirm = input("Are you sure you want to delete this traveller? (yes/no): ").strip().lower()
-        if confirm != "yes":
-            print("Deletion cancelled.")
-            conn.close()
-            return False
-        if confirm == "yes":
-            cursor.execute("DELETE FROM travellers WHERE traveller_id=?", (traveller_id,))
-            conn.commit()
-
-            if cursor.rowcount == 0:
-                print("Traveller ID does not exist.")
-                log_activity(current_user["username"], "Failed to delete traveller - traveller ID does not exist", suspicious=True)
-                conn.close()
-                return False
-
-            if cursor.rowcount > 0:
+    strikes = 0
+    while strikes < 3:
+        traveller_id = input("Enter the Traveller ID to delete: ")
+        try:
+            traveller_id_int = int(traveller_id)
+            cursor = conn.cursor()
+            cursor.execute("SELECT customer_id FROM travellers WHERE customer_id=?", (traveller_id_int,))
+            if cursor.fetchone():
+                cursor.execute("DELETE FROM travellers WHERE customer_id=?", (traveller_id_int,))
+                conn.commit()
                 print("Traveller deleted.")
-                log_activity(current_user["username"], "Deleted traveller", "Success", suspicious=False)
+                log_activity(username, "delete_traveller", f"Traveller ID {traveller_id_int} deleted successfully")
                 conn.close()
                 return True
-    except sqlite3.Error as e:
-        log_activity(current_user["username"], f"Failed to delete traveller - database error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"Database error occurred: {str(e)}")
-        return False
-    except Exception as e:
-        log_activity(current_user["username"], f"Failed to delete traveller - unexpected error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
-        return False
+            else:
+                print("Traveller ID not found. Please try again.")
+                log_activity(username, "delete_traveller", f"Traveller ID {traveller_id} not found", suspicious=True)
+        except ValueError:
+            print("Invalid input. Traveller ID must be an integer.")
+            log_activity(username, "delete_traveller", "Invalid traveller ID input (not integer)", suspicious=True)
+        except Exception as e:
+            print(f"Error: {e}")
+            log_activity(username, "delete_traveller", f"Error while deleting traveller: {e}", suspicious=True)
+        strikes += 1
+
+    print("Too many strikes. Returning to previous menu.")
+    log_activity(username, "delete_traveller", "Too many strikes for traveller ID", suspicious=True)
+    conn.close()
 
 
 # === Scooter Operations ===
@@ -376,12 +355,19 @@ def add_scooter(current_user=None):
     encrypted_model = encrypt_data(model)
     encrypted_serial = encrypt_data(serial_number)
     encrypted_location = encrypt_data(location)
+    encrypted_speed = encrypt_data(str(top_speed))
+    encrypted_battery = encrypt_data(str(battery_capacity))
+    encrypted_SoC = encrypt_data(str(state_of_charge))
+    encrypted_range = encrypt_data(str(target_range))
+    encrypted_out_of_service = encrypt_data(str(out_of_service))
+    encrypted_mileage = encrypt_data(str(mileage))
+    encrypted_last_service_date = encrypt_data(last_service_date)
     try:
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO scooters (brand, model, serial_number, top_speed, battery_capacity, state_of_charge, target_range, location, out_of_service, mileage, last_service_date)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (encrypted_brand, encrypted_model, encrypted_serial, top_speed, battery_capacity, state_of_charge, target_range, encrypted_location, out_of_service, mileage, last_service_date))
+        """, (encrypted_brand, encrypted_model, encrypted_serial, encrypted_speed, encrypted_battery, encrypted_SoC, encrypted_range, encrypted_location, encrypted_out_of_service, encrypted_mileage, encrypted_last_service_date))
         conn.commit()
         print("Scooter added.")
         log_activity(username, "add_scooter", "Scooter added successfully")
@@ -406,14 +392,14 @@ def search_scooters(current_user):
         decrypted_brand = decrypt_data(row[1])
         decrypted_model = decrypt_data(row[2])
         decrypted_serial = decrypt_data(row[3])
-        top_speed = row[4]
-        battery_capacity = row[5]
-        state_of_charge = row[6]
-        target_range = row[7]
+        top_speed = decrypt_data(row[4])
+        battery_capacity = decrypt_data(row[5])
+        state_of_charge = decrypt_data(row[6])
+        target_range = decrypt_data(row[7])
         decrypted_location = decrypt_data(row[8])
-        out_of_service = row[9]
-        mileage = row[10]
-        last_service_date = row[11]
+        out_of_service = decrypt_data(row[9])
+        mileage = decrypt_data(row[10])
+        last_service_date = decrypt_data(row[11])
         # Search in decrypted/encrypted fields as appropriate
         if (
             key in decrypted_brand.lower()
@@ -633,7 +619,7 @@ def add_service_engineer(current_user):# WERKT VOLLEDIG
     password = input("Password: ")
     if not validate_password(password):
         log_activity(current_user["username"], f"Failed to add service engineer - invalid password format: {password}", suspicious=True)
-        print("Invalid password format. Please use 8-20 alphanumeric characters.")
+        print("Invalid password format. Please use 12-30 characters with at least one uppercase letter, one lowercase letter, and one special character.")
         return
     encrypted_username = encrypt_data(username)
     encrypted_role = encrypt_data("engineer")
