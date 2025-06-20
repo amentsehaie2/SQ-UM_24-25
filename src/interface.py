@@ -11,7 +11,8 @@ from operations import (
     add_system_admin, update_system_admin_username, update_system_admin_password,
     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
     make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db, use_restore_code_db,
-    list_users, BACKUP_DIR, update_own_system_admin_profile, delete_own_system_admin_account, update_own_password_service_engineer, update_own_system_admin_profile
+    list_users, BACKUP_DIR, update_own_system_admin_profile, delete_own_system_admin_account, update_own_password_service_engineer,
+    update_own_username_system_admin
 )
 from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
 
@@ -304,7 +305,7 @@ def system_administration_menu(current_user):
                 while strike_count < 4:
                     restore_code = input("Enter your restore-code: ").strip()
                     if isinstance(restore_code, str) and restore_code:
-                        ok, backup_name = use_restore_code_db(current_user["username"], restore_code, current_user)
+                        ok, backup_name = use_restore_code_db(decrypt_data(current_user["username"]), restore_code, current_user)
                         if not ok:
                             print("Restore-code invalid or not for this user!")
                             strike_count += 1
