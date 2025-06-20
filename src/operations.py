@@ -1968,7 +1968,7 @@ def restore_backup_by_name(current_user, backup_name):
     """Restore zip-backup, only system admins can do this, through a code."""
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     if not os.path.exists(backup_path):
-        print("Backup niet gevonden!")
+        print("Backup not found!")
         log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
         return False
     # Verwijder bestaande .db bestanden
@@ -1978,8 +1978,8 @@ def restore_backup_by_name(current_user, backup_name):
     shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
     if os.path.exists(backup_path):
         os.remove(backup_path)
-        log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
-        print(f"Backup '{backup_name}' succesvol hersteld.")
+        log_activity(current_user, f"Backup restored: {backup_name}", suspicious=False)
+        print(f"Backup '{backup_name}' succesfully restored.")
         return True
     else:
         log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
@@ -1991,21 +1991,21 @@ def generate_restore_code_db(target_system_admin, backup_name, current_user):
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     with open(RESTORE_CODE_FILE, "a", encoding="utf-8") as f:
         f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
-    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin} backup: {backup_name}", suspicious=False)
-    print(f"Restore-code voor {target_system_admin}: {code}")
+    log_activity("super_admin", f"Restore-code generated for {target_system_admin} backup: {backup_name}", suspicious=False)
+    print(f"Restore-code for {target_system_admin}: {code}")
     return code
 
 def use_restore_code_db(current_username, code, current_user):
     """
-    Valideert een restore-code, koppelt aan de juiste System Admin & backup,
-    markeert de code als gebruikt. Returnt (True, backup_name) bij succes, anders (False, None).
+    Validates a restore code, links it to the correct System Admin & backup,
+    marks the code as used. Returns (True, backup_name) on success, otherwise (False, None).
     """
     lines = []
     found = False
     backup_name = None
     if not os.path.exists(RESTORE_CODE_FILE):
-        print("Restore-codes-bestand niet gevonden!")
-        log_activity(current_username, "use_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)
+        print("Restore codes file not found!")
+        log_activity(current_username, "use_restore_code_db", "Restore codes file not found", suspicious=True)
         return False, None
     with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -2021,6 +2021,23 @@ def use_restore_code_db(current_username, code, current_user):
     return found, backup_name
 
 def revoke_restore_code_db(code, current_user):
+    if not os.path.exists(RESTORE_CODE_FILE):
+        print("Restore codes file not found!")
+        log_activity("super_admin", "revoke_restore_code_db", "Restore codes file not found", suspicious=True)
+        return
+    lines = []
+    with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
+        for line in lines:
+            code_line, sysadmin, backup, used = line.strip().split("|")
+            if code_line == code and used == "unused":
+                f.write(f"{code}|{sysadmin}|{backup}|revoked\n")
+            else:
+                f.write(line)
+    print(f"Restore code '{code}' has been revoked.")
+    log_activity("super_admin", f"Restore code revoked: {code}", suspicious=False)
+
     if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore-codes-bestand niet gevonden!")
         log_activity("super_admin", "revoke_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)
