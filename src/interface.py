@@ -150,9 +150,10 @@ def user_management_menu(current_user):
             account_deleted = delete_own_system_admin_account(current_user)
             if account_deleted:
                 # Immediate logout & break from all menus
-                logout(current_user)
-                print("You have been logged out because your account was deleted.")
-                os._exit(0)  # Force exit entire program/process
+                main()
+                # logout(current_user)
+                # print("You have been logged out because your account was deleted.")
+                # os._exit(0)  # Force exit entire program/process
         elif (is_super_admin and choice == 16) or (is_system_admin and choice == 11):
             break
         else:
