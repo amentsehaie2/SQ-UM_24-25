@@ -13,7 +13,6 @@ from validation import (
     validate_OoS, validate_mileage, validate_last_maint
 )
 from encryption import encrypt_data, decrypt_data
-import bcrypt
 from logger import log_activity, print_logs
 
 # Use the same DB path logic as database.py
@@ -203,17 +202,17 @@ def search_travellers(current_user):
             print("Matching travellers:")
             for r in results:
                 print(f"ID: {r[0]}, Name: {r[1]} {r[2]}, Zip: {r[3]}, Phone: {r[4]}, Email: {r[5]}, City: {r[6]}")
-                log_activity(decrypt_data(current_user["username"]), "Searched for travellers", "Success", suspicious=False)
+                log_activity(current_user["username"], "Searched for travellers", "Success", suspicious=False)
         else:
             print("No matching travellers found.")
-            log_activity(decrypt_data(current_user["username"]), "Searched for travellers", "Success", suspicious=False)
+            log_activity(current_user["username"], "Searched for travellers", "Success", suspicious=False)
         return results
     except sqlite3.Error as e:
         print(f"Database error occurred: {str(e)}")
-        log_activity(decrypt_data(current_user["username"]), "Searched for travellers", "Database error", suspicious=True)
+        log_activity(current_user["username"], "Searched for travellers", "Database error", suspicious=True)
         return None
     except Exception as e:
-        log_activity(decrypt_data(current_user["username"]), f"Failed to update traveller - unexpected error", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to update traveller - unexpected error", f"Error: {str(e)}", suspicious=True)
         print(f"An unexpected error occurred: {str(e)}")
         return False
 
@@ -221,7 +220,7 @@ def update_traveller(current_user):
     try:
         traveller_id = int(input("Enter the ID of the traveller you want to update: "))
     except ValueError:
-        log_activity(decrypt_data(current_user["username"]), "Failed to update traveller - invalid ID format", suspicious=True)
+        log_activity(current_user["username"], "Failed to update traveller - invalid ID format", suspicious=True)
         print("Invalid ID format. Please enter a number.")
         return False
 
@@ -233,7 +232,7 @@ def update_traveller(current_user):
         cursor.execute("SELECT 1 FROM travellers WHERE traveller_id=?", (traveller_id,))
         if not cursor.fetchone():
             print("Traveller ID does not exist.")
-            log_activity(decrypt_data(current_user["username"]), "Failed to update traveller - traveller ID does not exist", suspicious=True)
+            log_activity(current_user["username"], "Failed to update traveller - traveller ID does not exist", suspicious=True)
             conn.close()
             return False
 
@@ -264,12 +263,12 @@ def update_traveller(current_user):
                     values.append(processed_value)
                 else:
                     print(f"Invalid value for {field}. Update cancelled.")
-                    log_activity(decrypt_data(current_user["username"]), "Failed to update traveller - invalid value for field", suspicious=True)
+                    log_activity(current_user["username"], "Failed to update traveller - invalid value for field", suspicious=True)
                     conn.close()
                     return False
         if not updates:
             print("No valid fields to update.")
-            log_activity(decrypt_data(current_user["username"]), "Failed to update traveller - no valid fields to update", suspicious=True)
+            log_activity(current_user["username"], "Failed to update traveller - no valid fields to update", suspicious=True)
             conn.close()
             return False
 
@@ -279,20 +278,20 @@ def update_traveller(current_user):
         conn.commit()
         if cursor.rowcount == 0:
             print("Traveller ID does not exist.")
-            log_activity(decrypt_data(current_user["username"]), "Failed to update traveller - traveller ID does not exist", suspicious=True)
+            log_activity(current_user["username"], "Failed to update traveller - traveller ID does not exist", suspicious=True)
             conn.close()
             return False
         if cursor.rowcount > 0:
             print("Traveller updated.")
-            log_activity(decrypt_data(current_user["username"]), "Updated traveller", "Success", suspicious=False)
+            log_activity(current_user["username"], "Updated traveller", "Success", suspicious=False)
             conn.close()
             return False
     except sqlite3.Error as e:
-        log_activity(decrypt_data(current_user["username"]), f"Failed to update traveller - database error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to update traveller - database error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
         print(f"Database error occurred: {str(e)}")
         return False
     except Exception as e:
-        log_activity(decrypt_data(current_user["username"]), f"Failed to update traveller - unexpected error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to update traveller - unexpected error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
         print(f"An unexpected error occurred: {str(e)}")
         return False
     finally:
@@ -307,11 +306,11 @@ def delete_traveller(current_user):
             break
         except ValueError:
             strike_count += 1
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid ID format", suspicious=True)
+            log_activity(current_user["username"], f"Strike count: {strike_count}", "Invalid ID format", suspicious=True)
             print("Invalid ID format. Please enter a number.")  
     if strike_count == 4:
         print("You have reached the maximum number of strikes. Please try again later.")
-        log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Maximum number of strikes reached", suspicious=True)
+        log_activity(current_user["username"], f"Strike count: {strike_count}", "Maximum number of strikes reached", suspicious=True)
         return False
 
     conn = get_db_connection()
@@ -335,140 +334,90 @@ def delete_traveller(current_user):
 
             if cursor.rowcount == 0:
                 print("Traveller ID does not exist.")
-                log_activity(decrypt_data(current_user["username"]), "Failed to delete traveller - traveller ID does not exist", suspicious=True)
+                log_activity(current_user["username"], "Failed to delete traveller - traveller ID does not exist", suspicious=True)
                 conn.close()
                 return False
 
             if cursor.rowcount > 0:
                 print("Traveller deleted.")
-                log_activity(decrypt_data(current_user["username"]), "Deleted traveller", "Success", suspicious=False)
+                log_activity(current_user["username"], "Deleted traveller", "Success", suspicious=False)
                 conn.close()
                 return True
     except sqlite3.Error as e:
-        log_activity(decrypt_data(current_user["username"]), f"Failed to delete traveller - database error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to delete traveller - database error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
         print(f"Database error occurred: {str(e)}")
         return False
     except Exception as e:
-        log_activity(decrypt_data(current_user["username"]), f"Failed to delete traveller - unexpected error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to delete traveller - unexpected error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
         print(f"An unexpected error occurred: {str(e)}")
         return False
 
 
 # === Scooter Operations ===
-def add_scooter(current_user):
+def add_scooter(current_user=None):
     conn = get_db_connection()
     print("Enter scooter details:")
+    username = current_user["username"] if current_user and "username" in current_user else "unknown"
 
-    while strike_count < 4:
-        brand = input("Brand: ")
-        if validate_brand(brand):
-            break
-        strike_count += 1
-        log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid brand", suspicious=True)
-        print("Invalid brand. Please try again.")
+    def get_valid_input(prompt_text, validate_func, log_field, cast_func=None):
+        strikes = 0
+        while strikes < 3:
+            value = input(prompt_text)
+            try:
+                if cast_func:
+                    value_cast = cast_func(value)
+                else:
+                    value_cast = value
+                if validate_func(value_cast):
+                    return value_cast
+            except Exception as e:
+                print(f"Validation error: {e}")
+            print(f"Invalid {log_field.replace('_', ' ')}. Please try again.")
+            log_activity(username, "add_scooter", f"Invalid {log_field}", suspicious=True)
+            strikes += 1
+        print("Too many strikes. Returning to previous menu.")
+        log_activity(username, "add_scooter", f"Too many strikes for {log_field}", suspicious=True)
+        return None
 
-    while strike_count < 4:
-        model = input("Model: ")
-        if validate_model(model):
-            break
-        strike_count += 1
-        log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid model", suspicious=True)
-        print("Invalid model. Please try again.")
+    brand = get_valid_input("Brand: ", validate_brand, "brand")
+    if brand is None:
+        return
+    model = get_valid_input("Model: ", validate_model, "model")
+    if model is None:
+        return
+    serial_number = get_valid_input("Serial number: ", validate_serial_number, "serial number")
+    if serial_number is None:
+        return
+    top_speed = get_valid_input("Top speed (integer): ", validate_top_speed, "top speed", int)
+    if top_speed is None:
+        return
+    battery_capacity = get_valid_input("Battery capacity (integer): ", validate_battery_capacity, "battery capacity", int)
+    if battery_capacity is None:
+        return
+    state_of_charge = get_valid_input("State of charge (0-100): ", validate_SoC, "state of charge", int)
+    if state_of_charge is None:
+        return
+    target_range = get_valid_input("Target range (integer): ", validate_target_range, "target range", int)
+    if target_range is None:
+        return
+    location = get_valid_input("Location (latitude,longitude): ", validate_location, "location")
+    if location is None:
+        return
+    out_of_service_input = get_valid_input("Out of service (True/False): ", lambda x: x.lower() in {"true", "false"}, "out of service")
+    if out_of_service_input is None:
+        return
+    out_of_service = out_of_service_input.lower() == "true"
+    if not validate_OoS(out_of_service):
+        print("Invalid out of service value. Returning to previous menu.")
+        log_activity(username, "add_scooter", "Invalid out_of_service value", suspicious=True)
+        return
+    mileage = get_valid_input("Mileage (integer): ", validate_mileage, "mileage", int)
+    if mileage is None:
+        return
+    last_service_date = get_valid_input("Last service date (YYYY-MM-DD): ", validate_last_maint, "last service date")
+    if last_service_date is None:
+        return
 
-    while strike_count < 4:
-        serial_number = input("Serial number: ")
-        if validate_serial_number(serial_number):
-            break
-        strike_count += 1
-        log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid serial number", suspicious=True)
-        print("Invalid serial number. Please try again.")
-       
-    while strike_count < 4:
-        try:
-            top_speed = int(input("Top speed (integer): "))
-            if validate_top_speed(top_speed):
-                break
-            strike_count += 1
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid top speed", suspicious=True)
-            print("Invalid top speed. Please enter a positive integer.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-
-    while strike_count < 4:
-        try:
-            battery_capacity = int(input("Battery capacity (integer): "))
-            if validate_battery_capacity(battery_capacity):
-                break
-            strike_count += 1
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid battery capacity", suspicious=True)
-            print("Invalid battery capacity. Please enter a positive integer.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-
-    while strike_count < 4:
-        try:
-            state_of_charge = int(input("State of charge (0-100): "))
-            if validate_SoC(state_of_charge):
-                break
-            else:
-                print("Invalid state of charge. Please enter a value between 0 and 100.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid state of charge", suspicious=True)
-
-    while strike_count < 4:
-        try:
-            target_range = int(input("Target range (integer): "))
-            if validate_target_range(target_range):
-                break
-            strike_count += 1
-            print("Invalid target range. Please enter a positive integer.")
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid target range", suspicious=True)
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid format", suspicious=True)
-
-    while strike_count < 4:
-        location = input("Location (latitude,longitude): ")
-        if validate_location(location):
-            break
-        print("Invalid location. Please try again.")
-        log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid location", suspicious=True)
-
-    while strike_count < 4:
-        out_of_service_input = input("Out of service (True/False): ")
-        if out_of_service_input.lower() in {"true", "false"}:
-            out_of_service = out_of_service_input.lower() == "true"
-            if validate_OoS(out_of_service):
-                break
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid out of service status", suspicious=True)
-            print("Invalid input. Please enter True or False.")
-
-    while strike_count < 4:
-        try:
-            mileage = int(input("Mileage (integer): "))
-            if validate_mileage(mileage):
-                break
-            else:
-                print("Invalid mileage. Please enter a non-negative integer.")
-                log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid mileage", suspicious=True)
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid format", suspicious=True)
-
-    while strike_count < 4:
-        last_service_date = input("Last service date (YYYY-MM-DD): ")
-        if validate_last_maint(last_service_date):
-            break
-        print("Invalid date. Please use YYYY-MM-DD format.")
-        log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Invalid date", suspicious=True)
-
-    
-    if strike_count == 4:
-        print("You have reached the maximum number of strikes. Please try again later.")
-        log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Maximum number of strikes reached", suspicious=True)
-        return False
-    
     encrypted_brand = encrypt_data(brand)
     encrypted_model = encrypt_data(model)
     encrypted_serial = encrypt_data(serial_number)
@@ -480,60 +429,74 @@ def add_scooter(current_user):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (encrypted_brand, encrypted_model, encrypted_serial, top_speed, battery_capacity, state_of_charge, target_range, encrypted_location, out_of_service, mileage, last_service_date))
         conn.commit()
-
-        if cursor.rowcount > 0:
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Scooter added", suspicious=False)
-            print("Scooter added.")
-            return True
-        else:
-            log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Failed to add scooter", suspicious=True)
-            print("Failed to add scooter.")
-            return False
-    except sqlite3.IntegrityError:
-        print(f"Error: Scooter with serial number '{serial_number}' might already exist.")
-        return False
-    finally:
-        conn.close()
+        print("Scooter added.")
+        log_activity(username, "add_scooter", "Scooter added successfully")
+        return True
+    except Exception as e:
+        print(f"Error: {e}")
+        log_activity(username, "add_scooter", f"Failed to add scooter: {e}", suspicious=True)
+        return
 
 def search_scooters(current_user):
     key = input("Enter search key for scooters: ").strip().lower()
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    try:
-        cursor.execute("SELECT scooter_id, brand, model, serial_number, location FROM scooters")
-        results = []
-        for row in cursor.fetchall():
-            decrypted_brand = decrypt_data(row[1])
-            decrypted_model = decrypt_data(row[2])
-            decrypted_serial = decrypt_data(row[3])
-            decrypted_location = decrypt_data(row[4])
-            if (key in decrypted_brand.lower() or key in decrypted_model.lower() or key in decrypted_serial.lower()):
-                results.append((row[0], decrypted_brand, decrypted_model, decrypted_serial, decrypted_location))
-        conn.close()
-        if results:
-            print("Matching scooters:")
-            for r in results:
-                print(f"ID: {r[0]}, Brand: {r[1]}, Model: {r[2]}, Serial: {r[3]}, Location: {r[4]}")
-                log_activity(decrypt_data(current_user["username"]), f"ID: {r[0]}, Brand: {r[1]}, Model: {r[2]}, Serial: {r[3]}, Location: {r[4]}", "Searched for scooters", suspicious=False)
-        else:
-            print("No matching scooters found.")
-            log_activity(decrypt_data(current_user["username"]), "Searched for scooters", "No matching scooters found", suspicious=True)
-        return results
-    except sqlite3.Error as e:
-        print(f"Database error occurred: {str(e)}")
-        log_activity(decrypt_data(current_user["username"]), "Searched for scooters", "Database error", suspicious=True)
-        return None
-    except Exception as e:
-        log_activity(decrypt_data(current_user["username"]), f"Failed to update scooters - unexpected error", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
-        return False
+    cursor.execute("""
+        SELECT scooter_id, brand, model, serial_number, top_speed, battery_capacity, state_of_charge, 
+               target_range, location, out_of_service, mileage, last_service_date
+        FROM scooters
+    """)
+    results = []
+    for row in cursor.fetchall():
+        scooter_id = row[0]
+        decrypted_brand = decrypt_data(row[1])
+        decrypted_model = decrypt_data(row[2])
+        decrypted_serial = decrypt_data(row[3])
+        top_speed = row[4]
+        battery_capacity = row[5]
+        state_of_charge = row[6]
+        target_range = row[7]
+        decrypted_location = decrypt_data(row[8])
+        out_of_service = row[9]
+        mileage = row[10]
+        last_service_date = row[11]
+        # Search in decrypted/encrypted fields as appropriate
+        if (
+            key in decrypted_brand.lower()
+            or key in decrypted_model.lower()
+            or key in decrypted_serial.lower()
+            or key in str(top_speed).lower()
+            or key in str(battery_capacity).lower()
+            or key in str(state_of_charge).lower()
+            or key in str(target_range).lower()
+            or key in decrypted_location.lower()
+            or key in str(out_of_service).lower()
+            or key in str(mileage).lower()
+            or (last_service_date and key in str(last_service_date).lower())
+        ):
+            results.append((
+                scooter_id, decrypted_brand, decrypted_model, decrypted_serial, top_speed,
+                battery_capacity, state_of_charge, target_range, decrypted_location,
+                out_of_service, mileage, last_service_date
+            ))
+    conn.close()
+    if results:
+        print("Matching scooters:")
+        for r in results:
+            print(
+                f"ID: {r[0]}, Brand: {r[1]}, Model: {r[2]}, Serial: {r[3]}, Top Speed: {r[4]}, "
+                f"Battery: {r[5]}, SoC: {r[6]}, Range: {r[7]}, Location: {r[8]}, "
+                f"Out of Service: {r[9]}, Mileage: {r[10]}, Last Service: {r[11]}"
+            )
+    else:
+        print("No matching scooters found.")
+    return results
     
 def update_scooter(current_user):
     try:
         scooter_id = int(input("Enter the ID of the scooter you want to update: "))
     except ValueError:
-        log_activity(decrypt_data(current_user["username"]), "Failed to update scooter - invalid ID format", suspicious=True)
+        log_activity(current_user["username"], "Failed to update scooter - invalid ID format", suspicious=True)
         print("Invalid ID format. Please enter a number.")
         return False
 
@@ -545,7 +508,7 @@ def update_scooter(current_user):
         cursor.execute("SELECT 1 FROM scooters WHERE scooter_id=?", (scooter_id,))
         if not cursor.fetchone():
             print("Scooter ID does not exist.")
-            log_activity(decrypt_data(current_user["username"]), "Failed to update scooter - scooter ID does not exist", suspicious=True)
+            log_activity(current_user["username"], "Failed to update scooter - scooter ID does not exist", suspicious=True)
             conn.close()
             return False
 
@@ -575,7 +538,7 @@ def update_scooter(current_user):
                         value = int(value)
                     except ValueError:
                         print(f"Invalid value for {field}. Must be an integer.")
-                        log_activity(decrypt_data(current_user["username"]), f"Failed to update scooter - invalid value for {field}", suspicious=True)
+                        log_activity(current_user["username"], f"Failed to update scooter - invalid value for {field}", suspicious=True)
                         conn.close()
                         return False
                 if field == "out_of_service":
@@ -606,15 +569,80 @@ def update_scooter(current_user):
         conn.close()
         print("Scooter updated.")
         return True
-
+    
     except sqlite3.Error as e:
         print(f"Database error occurred: {str(e)}")
-        log_activity(decrypt_data(current_user["username"]), "Failed to update scooter - database error", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], "Failed to update scooter - database error", f"Error: {str(e)}", suspicious=True)
         return False
     except Exception as e:
-        log_activity(decrypt_data(current_user["username"]), "Failed to update scooter - unexpected error", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], "Failed to update scooter - unexpected error", f"Error: {str(e)}", suspicious=True)
         print(f"An unexpected error occurred: {str(e)}")
         return False
+
+def update_scooter_by_engineer():
+    scooter_id = input("Enter the Scooter ID to update: ").strip()
+    if not scooter_id.isdigit():
+        print("Invalid Scooter ID format.")
+        return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM scooters WHERE scooter_id=?", (scooter_id,))
+    if not cursor.fetchone():
+        print("Scooter ID does not exist.")
+        conn.close()
+        return False
+
+    print("Leave fields blank to skip updating them.")
+    # Alleen de velden die een engineer mag aanpassen:
+    allowed_fields = {
+        "state_of_charge": (validate_SoC, False),
+        "out_of_service": (validate_OoS, False),
+        "mileage": (validate_mileage, False),
+        "last_service_date": (validate_last_maint, False)
+    }
+    updates = []
+    values = []
+
+    for field, (validator, should_encrypt) in allowed_fields.items():
+        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+        if value:
+            if field in {"state_of_charge", "mileage"}:
+                try:
+                    value = int(value)
+                except ValueError:
+                    print(f"Invalid value for {field}. Must be an integer.")
+                    conn.close()
+                    return False
+            if field == "out_of_service":
+                if value.lower() in {"true", "false"}:
+                    value = value.lower() == "true"
+                else:
+                    print("Invalid value for out_of_service. Must be True or False.")
+                    conn.close()
+                    return False
+            if validator(value):
+                processed_value = encrypt_data(value) if should_encrypt else value
+                updates.append(f"{field}=?")
+                values.append(processed_value)
+            else:
+                print(f"Invalid value for {field}. Update cancelled.")
+                conn.close()
+                return False
+
+    if not updates:
+        print("No valid fields to update.")
+        conn.close()
+        return False
+
+    sql = f"UPDATE scooters SET {', '.join(updates)} WHERE scooter_id=?"
+    values.append(scooter_id)
+    cursor.execute(sql, tuple(values))
+    conn.commit()
+    conn.close()
+    print("Scooter updated.")
+    return True
+
 
 def delete_scooter(current_user):
     while strike_count < 4:
@@ -630,44 +658,40 @@ def delete_scooter(current_user):
         log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Maximum number of strikes reached", suspicious=True)
         return False
 
+def delete_scooter(current_user=None):
     conn = get_db_connection()
-    cursor = conn.cursor()
+    username = current_user["username"] if current_user and "username" in current_user else "unknown"
 
-    try:
-        cursor.execute("SELECT 1 FROM scooters WHERE scooter_id=?", (scooter_id,))
-        if not cursor.fetchone():
-            print("SCooter ID does not exist.")
-            conn.close()
-            return False
-
-        confirm = input("Are you sure you want to delete this scooter? (yes/no): ").strip().lower()
-        if confirm != "yes":
-            print("Deletion cancelled.")
-            conn.close()
-            return False
-        if confirm == "yes":
-            cursor.execute("DELETE FROM scooters WHERE scooter_id=?", (scooter_id,))
-            conn.commit()
-
-            if cursor.rowcount == 0:
-                print("Scooter ID does not exist.")
-                log_activity(decrypt_data(current_user["username"]), "Failed to delete Scooter - Scooter ID does not exist", suspicious=True)
-                conn.close()
-                return False
-
-            if cursor.rowcount > 0:
+    strikes = 0
+    while strikes < 3:
+        scooter_id = input("Enter the Scooter ID to delete: ")
+        try:
+            # Check if scooter_id is an integer and exists
+            scooter_id_int = int(scooter_id)
+            cursor = conn.cursor()
+            cursor.execute("SELECT scooter_id FROM scooters WHERE scooter_id=?", (scooter_id_int,))
+            if cursor.fetchone():
+                cursor.execute("DELETE FROM scooters WHERE scooter_id=?", (scooter_id_int,))
+                conn.commit()
                 print("Scooter deleted.")
-                log_activity(decrypt_data(current_user["username"]), "Deleted Scooter", "Success", suspicious=False)
+                log_activity(username, "delete_scooter", f"Scooter ID {scooter_id_int} deleted successfully")
                 conn.close()
                 return True
-    except sqlite3.Error as e:
-        log_activity(decrypt_data(current_user["username"]), f"Failed to delete scooter - database error for ID {scooter_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"Database error occurred: {str(e)}")
-        return False
-    except Exception as e:
-        log_activity(decrypt_data(current_user["username"]), f"Failed to delete scooter  - unexpected error for ID {scooter_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
-        return False
+            else:
+                print("Scooter ID not found. Please try again.")
+                log_activity(username, "delete_scooter", f"Scooter ID {scooter_id} not found", suspicious=True)
+        except ValueError:
+            print("Invalid input. Scooter ID must be an integer.")
+            log_activity(username, "delete_scooter", "Invalid scooter ID input (not integer)", suspicious=True)
+        except Exception as e:
+            print(f"Error: {e}")
+            log_activity(username, "delete_scooter", f"Error while deleting scooter: {e}", suspicious=True)
+        strikes += 1
+
+    print("Too many strikes. Returning to previous menu.")
+    log_activity(username, "delete_scooter", "Too many strikes for scooter ID", suspicious=True)
+    conn.close()
+    return False
 
 # === User/System Admin Functions ===
 def list_users(): #WERKT VOLLEDIG   
@@ -931,6 +955,20 @@ def update_service_engineer_password(current_user): # WERKT VOLLEDIG
     finally:
         conn.close()
 
+def delete_service_engineer(current_user):
+
+    while strike_count < 4:
+        try:
+            service_engineer_id = int(input("Enter the ID of the service engineer you want to delete: "))
+            break
+        except ValueError:
+            strike_count += 1
+            log_activity(current_user["username"], f"Strike count: {strike_count}", "Invalid ID format", suspicious=True)
+            print("Invalid ID format. Please enter a number.")  
+    if strike_count == 4:
+        print("You have reached the maximum number of strikes. Please try again later.")
+        log_activity(current_user["username"], f"Strike count: {strike_count}", "Maximum number of strikes reached", suspicious=True)
+        return False
 def update_fname_service_engineer(current_user): # WERKT VOLLEDIG
     """Updates the first name of a service engineer."""
     try:
@@ -1086,9 +1124,22 @@ def delete_service_engineer(current_user): # WERKT VOLLEDIG
         if confirmation.lower() == "yes":
             cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
             conn.commit()
+            return False
+        if confirm == "yes":
+            cursor.execute("DELETE FROM users WHERE id=?", (user_id,))
+            conn.commit()
+
+            if cursor.rowcount == 0:
+                print("Service Engineer ID does not exist.")
+                log_activity(current_user["username"], "Failed to delete service engineer - service engineer ID does not exist", suspicious=True)
+                conn.close()
+                return False
+
             if cursor.rowcount > 0:
-                log_activity(current_user["username"], f"Successfully deleted service engineer {current_username} (ID: {user_id})")
-                print("Service engineer deleted successfully.")
+                print("Service engineer deleted.")
+                log_activity(current_user["username"], "Deleted service engineer", "Success", suspicious=False)
+                conn.close()
+                return True
             else:
                 log_activity(current_user["username"], f"Failed to delete service engineer - no rows affected for ID {user_id}", suspicious=True)
                 print("Failed to delete service engineer - no changes made to database.")
@@ -1795,39 +1846,39 @@ def revoke_restore_code_db(code):
 
 # === Operationele wrappers voor menu (met rol-check!) ===
 
-def make_backup(current_user):
-    if current_user["role"] not in ["super_admin", "system_admin"]:
-        print("Permission denied: Alleen Super Admin/System Admin mag backups maken!")
-        return
-    backup_name = create_backup()
-    print(f"Backup gemaakt: {backup_name}")
+# def make_backup(current_user):
+#     if current_user["role"] not in ["super_admin", "system_admin"]:
+#         print("Permission denied: Alleen Super Admin/System Admin mag backups maken!")
+#         return
+#     backup_name = create_backup()
+#     print(f"Backup gemaakt: {backup_name}")
 
-def generate_restore_code(current_user):
-    if current_user["role"] != "super_admin":
-        print("Permission denied: Alleen Super Admin mag restore-codes genereren!")
-        return
-    sysadmin = input("Voor welke System Admin? Username: ").strip()
-    backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
-    generate_restore_code_db(sysadmin, backup_name)
+# def generate_restore_code(current_user):
+#     if current_user["role"] != "super_admin":
+#         print("Permission denied: Alleen Super Admin mag restore-codes genereren!")
+#         return
+#     sysadmin = input("Voor welke System Admin? Username: ").strip()
+#     backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
+#     generate_restore_code_db(sysadmin, backup_name)
 
-def restore_backup(current_user):
-    if current_user["role"] != "system_admin":
-        print("Alleen System Admin mag een restore uitvoeren!")
-        return
-    code = input("Voer restore-code in: ").strip()
-    ok, backup_name = use_restore_code_db(current_user["username"], code)
-    if not ok:
-        log_activity(current_user["username"], f"Restore attempt FAILED met code {code}", suspicious=True)
-        print("Restore-code ongeldig of niet voor deze gebruiker!")
-        return
-    restore_backup_by_name(current_user["username"], backup_name)
+# def restore_backup(current_user):
+#     if current_user["role"] != "system_admin":
+#         print("Alleen System Admin mag een restore uitvoeren!")
+#         return
+#     code = input("Voer restore-code in: ").strip()
+#     ok, backup_name = use_restore_code_db(current_user["username"], code)
+#     if not ok:
+#         log_activity(current_user["username"], f"Restore attempt FAILED met code {code}", suspicious=True)
+#         print("Restore-code ongeldig of niet voor deze gebruiker!")
+#         return
+#     restore_backup_by_name(current_user["username"], backup_name)
 
-def revoke_restore_code(current_user):
-    if current_user["role"] != "super_admin":
-        print("Alleen Super Admin mag restore-codes intrekken!")
-        return
-    code = input("Welke restore-code intrekken? ").strip()
-    revoke_restore_code_db(code)
+# def revoke_restore_code(current_user):
+#     if current_user["role"] != "super_admin":
+#         print("Alleen Super Admin mag restore-codes intrekken!")
+#         return
+#     code = input("Welke restore-code intrekken? ").strip()
+#     revoke_restore_code_db(code)
 
 if __name__ == "__main__":
 

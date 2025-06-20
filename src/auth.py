@@ -25,7 +25,6 @@ def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), salt)
 
 def verify_password(password, hashed_password):
-    # Zorg dat hashed_password bytes is, zodat bcrypt.checkpw altijd werkt
     if isinstance(hashed_password, str):
         hashed_password = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
@@ -59,8 +58,30 @@ def get_all_users_from_db():
     return users
 
 def login():
-    username_input = input("Username: ").strip()
-    password_input = input("Password: ").strip()
+    MAX_STRIKES = 4
+    strike_count = 0
+    while strike_count < MAX_STRIKES:
+        username_input = input("Username: ").strip()
+        if not isinstance(username_input, str) or username_input == "":
+            print("Username moet een niet-lege tekst zijn.")
+            strike_count += 1
+        else:
+            break
+    else:
+        print("Te veel ongeldige pogingen voor gebruikersnaam. Probeer het later opnieuw.")
+        return None
+
+    strike_count = 0
+    while strike_count < MAX_STRIKES:
+        password_input = input("Password: ").strip()
+        if not isinstance(password_input, str) or password_input == "":
+            print("Password moet een niet-lege tekst zijn.")
+            strike_count += 1
+        else:
+            break
+    else:
+        print("Te veel ongeldige pogingen voor wachtwoord. Probeer het later opnieuw.")
+        return None
 
     if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
         log_action(username_input, "Super Admin login", False)
@@ -89,6 +110,7 @@ def login():
     log_action(username_input, "Login failed: user not found", True)
     print("User not found.")
     return None
+
 
 def logout(user):
     log_action(user["username"], "User logged out", False)
