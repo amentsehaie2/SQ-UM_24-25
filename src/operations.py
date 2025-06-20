@@ -354,7 +354,7 @@ def delete_traveller(current_user):
 
 
 # === Scooter Operations ===
-def add_scooter(current_user=None):
+def add_scooter(current_user):
     conn = get_db_connection()
     print("Enter scooter details:")
     username = current_user["username"] if current_user and "username" in current_user else "unknown"
@@ -488,8 +488,10 @@ def search_scooters(current_user):
                 f"Battery: {r[5]}, SoC: {r[6]}, Range: {r[7]}, Location: {r[8]}, "
                 f"Out of Service: {r[9]}, Mileage: {r[10]}, Last Service: {r[11]}"
             )
+            log_activity(current_user["username"], "search_scooters", f"Scooter ID: {r[0]}")
     else:
         print("No matching scooters found.")
+        log_activity(current_user["username"], "search_scooters", "No matching scooters found", suspicious=True)
     return results
     
 def update_scooter(current_user):
@@ -579,10 +581,11 @@ def update_scooter(current_user):
         print(f"An unexpected error occurred: {str(e)}")
         return False
 
-def update_scooter_by_engineer():
+def update_scooter_by_engineer(current_user):
     scooter_id = input("Enter the Scooter ID to update: ").strip()
     if not scooter_id.isdigit():
         print("Invalid Scooter ID format.")
+        log_activity(current_user["username"], "Failed to update scooter by engineer - invalid ID format", suspicious=True)
         return False
 
     conn = get_db_connection()
@@ -590,11 +593,11 @@ def update_scooter_by_engineer():
     cursor.execute("SELECT 1 FROM scooters WHERE scooter_id=?", (scooter_id,))
     if not cursor.fetchone():
         print("Scooter ID does not exist.")
+        log_activity(current_user["username"], "Failed to update scooter by engineer - scooter ID does not exist", suspicious=True)
         conn.close()
         return False
 
     print("Leave fields blank to skip updating them.")
-    # Alleen de velden die een engineer mag aanpassen:
     allowed_fields = {
         "state_of_charge": (validate_SoC, False),
         "out_of_service": (validate_OoS, False),
@@ -612,6 +615,7 @@ def update_scooter_by_engineer():
                     value = int(value)
                 except ValueError:
                     print(f"Invalid value for {field}. Must be an integer.")
+                    log_activity(current_user["username"], f"Failed to update scooter by engineer - invalid value for {field}", suspicious=True)
                     conn.close()
                     return False
             if field == "out_of_service":
@@ -619,6 +623,7 @@ def update_scooter_by_engineer():
                     value = value.lower() == "true"
                 else:
                     print("Invalid value for out_of_service. Must be True or False.")
+                    log_activity(current_user["username"], "Failed to update scooter by engineer - invalid value for out_of_service", suspicious=True)  
                     conn.close()
                     return False
             if validator(value):
@@ -627,11 +632,13 @@ def update_scooter_by_engineer():
                 values.append(processed_value)
             else:
                 print(f"Invalid value for {field}. Update cancelled.")
+                log_activity(current_user["username"], f"Failed to update scooter by engineer - invalid value for {field}", suspicious=True)
                 conn.close()
                 return False
 
     if not updates:
         print("No valid fields to update.")
+        log_activity(current_user["username"], "Failed to update scooter by engineer - no valid fields to update", suspicious=True)
         conn.close()
         return False
 
@@ -639,12 +646,18 @@ def update_scooter_by_engineer():
     values.append(scooter_id)
     cursor.execute(sql, tuple(values))
     conn.commit()
-    conn.close()
-    print("Scooter updated.")
-    return True
+    if cursor.rowcount == 0:
+        print("Scooter ID does not exist.")
+        log_activity(current_user["username"], "Failed to update scooter by engineer - scooter ID does not exist", suspicious=True)
+        conn.close()
+        return False
+    if cursor.rowcount > 0:
+        print("Scooter updated.")
+        log_activity(current_user["username"], "Successfully updated scooter by engineer", f"Scooter ID: {scooter_id}", suspicious=False)
+        conn.close()
+        return True
 
 
-def delete_scooter(current_user):
     while strike_count < 4:
         try:
             scooter_id = int(input("Enter the ID of the scooter you want to delete: "))
@@ -658,40 +671,49 @@ def delete_scooter(current_user):
         log_activity(decrypt_data(current_user["username"]), f"Strike count: {strike_count}", "Maximum number of strikes reached", suspicious=True)
         return False
 
-def delete_scooter(current_user=None):
+def delete_scooter(current_user):
     conn = get_db_connection()
     username = current_user["username"] if current_user and "username" in current_user else "unknown"
 
     strikes = 0
-    while strikes < 3:
+    while strikes < 4:
         scooter_id = input("Enter the Scooter ID to delete: ")
         try:
-            # Check if scooter_id is an integer and exists
             scooter_id_int = int(scooter_id)
             cursor = conn.cursor()
             cursor.execute("SELECT scooter_id FROM scooters WHERE scooter_id=?", (scooter_id_int,))
             if cursor.fetchone():
                 cursor.execute("DELETE FROM scooters WHERE scooter_id=?", (scooter_id_int,))
                 conn.commit()
-                print("Scooter deleted.")
-                log_activity(username, "delete_scooter", f"Scooter ID {scooter_id_int} deleted successfully")
-                conn.close()
-                return True
+                if cursor.rowcount == 0:
+                    print("Scooter ID not found. Please try again.")
+                    log_activity(username, "delete_scooter", f"Scooter ID {scooter_id} not found", suspicious=True)
+                    conn.close()
+                    strikes += 1
+                    continue    
+                if cursor.rowcount > 0:
+                    print("Scooter deleted.")
+                    log_activity(username, "delete_scooter", f"Scooter ID {scooter_id_int} deleted successfully")
+                    conn.close()
+                    return True
             else:
                 print("Scooter ID not found. Please try again.")
                 log_activity(username, "delete_scooter", f"Scooter ID {scooter_id} not found", suspicious=True)
+                strikes += 1
         except ValueError:
             print("Invalid input. Scooter ID must be an integer.")
             log_activity(username, "delete_scooter", "Invalid scooter ID input (not integer)", suspicious=True)
+            strikes += 1
         except Exception as e:
             print(f"Error: {e}")
             log_activity(username, "delete_scooter", f"Error while deleting scooter: {e}", suspicious=True)
-        strikes += 1
+            strikes += 1
 
-    print("Too many strikes. Returning to previous menu.")
-    log_activity(username, "delete_scooter", "Too many strikes for scooter ID", suspicious=True)
-    conn.close()
-    return False
+        if strikes >= 4:
+            print("You have reached the maximum number of strikes. Please try again later.")
+            log_activity(username, "delete_scooter", "Maximum number of strikes reached", suspicious=True)
+            conn.close()
+            return False
 
 # === User/System Admin Functions ===
 def list_users(): #WERKT VOLLEDIG   
@@ -1768,43 +1790,56 @@ def reset_system_admin_password(current_user): # WERKT VOLLEDIG
         conn.close()
 
 # === Backup Functions ===
-def make_backup(): #jayden
+def make_backup(current_user):
+    """Makes a backup of the database."""
     os.makedirs(BACKUP_DIR, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_name = f"urban_mobility_backup_{timestamp}.zip"
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     shutil.make_archive(backup_path.replace(".zip", ""), 'zip', _OUTPUT_DIR)
-    log_activity("system", f"Backup gemaakt: {backup_name}", suspicious=False)
-    print(f"Backup gemaakt: {backup_name}")
-    return backup_name
+    if os.path.exists(backup_path):
+        log_activity(current_user["username"], f"Backup created: {backup_name}", suspicious=False)
+        print(f"Backup created: {backup_name}")
+        return backup_name
+    else:
+        log_activity(current_user["username"], f"Backup FAILED: {backup_name}", suspicious=True)
+        print(f"Backup FAILED: {backup_name}")
+        return None
 
 def restore_backup_by_name(current_user, backup_name):
-    """Restore zip-backup, alleen voor System Admin via restore-code."""
+    """Restore zip-backup, only system admins can do this, through a code."""
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     if not os.path.exists(backup_path):
         print("Backup niet gevonden!")
+        log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
         return False
     # Verwijder bestaande .db bestanden
     for file in os.listdir(_OUTPUT_DIR):
         if file.endswith('.db'):
             os.remove(os.path.join(_OUTPUT_DIR, file))
     shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
-    log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
-    print(f"Backup '{backup_name}' succesvol hersteld.")
-    return True
+    if os.path.exists(backup_path):
+        os.remove(backup_path)
+        log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
+        print(f"Backup '{backup_name}' succesvol hersteld.")
+        return True
+    else:
+        log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
+        print(f"Backup FAILED: {backup_name}")
+        return False
 
 # === Restore-code management ===
-def generate_restore_code_db(target_system_admin, backup_name):
+def generate_restore_code_db(target_system_admin, backup_name, current_user):
     """Genereert een restore-code, gekoppeld aan een System Admin en een specifieke backup."""
     code = str(uuid.uuid4())
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     with open(RESTORE_CODE_FILE, "a", encoding="utf-8") as f:
         f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
-    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin} backup: {backup_name}", suspicious=False)
+    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin}", suspicious=False)
     print(f"Restore-code voor {target_system_admin}: {code}")
     return code
 
-def use_restore_code_db(current_username, code):
+def use_restore_code_db(current_username, code, current_user):
     """
     Valideert een restore-code, koppelt aan de juiste System Admin & backup,
     markeert de code als gebruikt. Returnt (True, backup_name) bij succes, anders (False, None).
@@ -1813,6 +1848,8 @@ def use_restore_code_db(current_username, code):
     found = False
     backup_name = None
     if not os.path.exists(RESTORE_CODE_FILE):
+        print("Restore-codes-bestand niet gevonden!")
+        log_activity(current_username, "use_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)
         return False, None
     with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -1827,9 +1864,10 @@ def use_restore_code_db(current_username, code):
                 f.write(line)
     return found, backup_name
 
-def revoke_restore_code_db(code):
+def revoke_restore_code_db(code, current_user):
     if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore-codes-bestand niet gevonden!")
+        log_activity("super_admin", "revoke_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)
         return
     lines = []
     with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
@@ -1842,7 +1880,7 @@ def revoke_restore_code_db(code):
             else:
                 f.write(line)
     print(f"Restore-code '{code}' ingetrokken.")
-    log_activity("super_admin", f"Restore-code revoked: {code}", suspicious=True)
+    log_activity("super_admin", f"Restore-code revoked: {code}", suspicious=False)
 
 # === Operationele wrappers voor menu (met rol-check!) ===
 

@@ -10,9 +10,9 @@ from operations import (
     make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db,
     list_users,
 )
-from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert
+from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
 
-def get_int_input(prompt, min_option, max_option):
+def get_int_input(prompt, min_option, max_option, user):
     strike_count = 0
     while strike_count < 4:
         try:
@@ -21,11 +21,14 @@ def get_int_input(prompt, min_option, max_option):
                 return value
             else:
                 print(f"Please enter a number between {min_option} and {max_option}.")
+                log_activity(user["username"], f"Strike count: {strike_count}", "Invalid input", suspicious=True)
                 strike_count += 1
         except ValueError:
             print("Invalid input. Please enter a number.")
+            log_activity(user["username"], f"Strike count: {strike_count}", "Invalid input", suspicious=True)
             strike_count += 1
     print("Too many invalid attempts. Returning to previous menu.")
+    log_activity(user["username"], f"Strike count: {strike_count}", "Too many invalid attempts", suspicious=True)
     return None
 
 def main():
@@ -46,6 +49,8 @@ def main_menu(user):
         service_engineer_menu(user)
     else:
         print("Unknown role. Exiting.")
+        log_activity(user["username"], "Unknown role", "Unknown role", suspicious=True)
+        return
 
 def super_admin_menu(user):
     while True:
@@ -55,7 +60,7 @@ def super_admin_menu(user):
         print("3. Scooter Management")
         print("4. System Administration")
         print("5. Uitloggen")
-        choice = get_int_input("Select a category (1-5): ", 1, 5)
+        choice = get_int_input("Select a category (1-5): ", 1, 5, user)
         if choice is None:
             break
         if choice == 1:
@@ -68,6 +73,7 @@ def super_admin_menu(user):
             system_administration_menu(user)
         elif choice == 5:
             print("Logging out...")
+            log_activity(user["username"], "Logout", "Logout")
             break
 
 def user_management_menu(current_user):
@@ -95,7 +101,7 @@ def user_management_menu(current_user):
         else:
             print("9. Terug")
             min_opt, max_opt = 1, 9
-        choice = get_int_input("Select an option: ", min_opt, max_opt)
+        choice = get_int_input("Select an option: ", min_opt, max_opt, current_user)
         if choice is None:
             break
         if choice == 1:
@@ -132,8 +138,9 @@ def user_management_menu(current_user):
             break
         else:
             print("Invalid option. Please try again.")
+            log_activity(current_user["username"], "Invalid option", "Invalid option", suspicious=True)
 
-def traveller_management_menu():
+def traveller_management_menu(user):
     while True:
         print("\n--- Traveller Management ---")
         print("1. Add Traveller")
@@ -141,7 +148,7 @@ def traveller_management_menu():
         print("3. Delete Traveller")
         print("4. Search Traveller")
         print("5. Terug")
-        choice = get_int_input("Select an option (1-5): ", 1, 5)
+        choice = get_int_input("Select an option (1-5): ", 1, 5, user)
         if choice is None:
             break
         if choice == 1:
@@ -154,6 +161,9 @@ def traveller_management_menu():
             search_travellers()
         elif choice == 5:
             break
+        else:
+            print("Invalid option. Please try again.")
+            log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
 
 def scooter_management_menu(current_user):
     while True:
@@ -163,7 +173,7 @@ def scooter_management_menu(current_user):
         print("3. Delete Scooter")
         print("4. Search Scooter")
         print("5. Terug")
-        choice = get_int_input("Select an option (1-5): ", 1, 5)
+        choice = get_int_input("Select an option (1-5): ", 1, 5, current_user)
         if choice is None:
             break
         if choice == 1:
@@ -171,6 +181,7 @@ def scooter_management_menu(current_user):
                 add_scooter()
             else:
                 print("Permission denied: Only System Admin or Super Admin can add scooters.")
+                log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 2:
             if current_user["role"] in ["super_admin", "system_admin"]:
                 update_scooter()
@@ -178,15 +189,20 @@ def scooter_management_menu(current_user):
                 update_scooter_by_engineer()
             else:
                 print("Permission denied.")
+                log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 3:
             if current_user["role"] in ["super_admin", "system_admin"]:
                 delete_scooter()
             else:
                 print("Permission denied: Only System Admin or Super Admin can delete scooters.")
+                log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 4:
             search_scooters()
         elif choice == 5:
             break
+        else:
+            print("Invalid option. Please try again.")
+            log_activity(current_user["username"], "Invalid option", "Invalid option", suspicious=True)
 
 def view_suspicious_logs():
     """View and acknowledge suspicious logs."""
@@ -220,13 +236,13 @@ def system_admin_menu(user):
         print("3. Scooter Management")
         print("4. System Administration")
         print("5. Uitloggen")
-        choice = get_int_input("Select an option (1-5): ", 1, 5)
+        choice = get_int_input("Select an option (1-5): ", 1, 5, user)
         if choice is None:
             break
         if choice == 1:
             user_management_menu(user)
         elif choice == 2:
-            traveller_management_menu()
+            traveller_management_menu(user)
         elif choice == 3:
             scooter_management_menu(user)
         elif choice == 4:
@@ -234,6 +250,9 @@ def system_admin_menu(user):
         elif choice == 5:
             print("Logging out...")
             break
+        else:
+            print("Invalid option. Please try again.")
+            log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
 
 def system_administration_menu(user):
     while True:
@@ -244,7 +263,7 @@ def system_administration_menu(user):
         print("4. Generate restore-code for System Administrator")
         print("5. Revoke restore-code for System Administrator")
         print("6. Terug")
-        choice = get_int_input("Select an option (1-6): ", 1, 6)
+        choice = get_int_input("Select an option (1-6): ", 1, 6, user)
         if choice is None:
             break
         if choice == 1:
@@ -257,20 +276,26 @@ def system_administration_menu(user):
                 restore_backup_by_name()
             else:
                 print("Only a System Administrator can restore a backup!")
+                log_activity(user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 4:
             # Alleen Super Admin mag een restore-code genereren!
             if user["role"] == "super_admin":
                 generate_restore_code_db()
             else:
                 print("Only a Super Administrator can generate a restore-code!")
+                log_activity(user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 5:
             # Alleen Super Admin mag restore-codes intrekken!
             if user["role"] == "super_admin":
                 revoke_restore_code_db()
             else:
                 print("Only a Super Administrator can revoke a restore-code!")
+                log_activity(user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 6:
             break
+        else:
+            print("Invalid option. Please try again.")
+            log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
 
 def service_engineer_menu(user):
     while True:
@@ -282,7 +307,7 @@ def service_engineer_menu(user):
         print("5. Update own first name")
         print("6. Update own last name")
         print("7. Uitloggen")
-        choice = get_int_input("Select an option (1-7): ", 1, 7)
+        choice = get_int_input("Select an option (1-7): ", 1, 7, user)
         if choice is None:
             break
         if choice == 1:
@@ -300,6 +325,9 @@ def service_engineer_menu(user):
         elif choice == 7:
             print("Logging out...")
             break
+        else:
+            print("Invalid option. Please try again.")
+            log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
 
 if __name__ == "__main__":
     main()
