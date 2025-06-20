@@ -3,6 +3,7 @@ import sys
 import sqlite3
 import bcrypt
 from datetime import datetime
+from logger import log_activity, show_suspicious_alert
 
 from database import DATABASE_NAME, get_user_by_username
 from encryption import encrypt_data
@@ -13,7 +14,7 @@ except ImportError:
     from encryption import decrypt_data
 
 try:
-    from validation import validate_username, validate_password
+    from src.validation import validate_username, validate_password
 except ImportError:
     from validation import validate_username, validate_password
 
@@ -24,7 +25,6 @@ def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), salt)
 
 def verify_password(password, hashed_password):
-    # Zorg dat hashed_password bytes is, zodat bcrypt.checkpw altijd werkt
     if isinstance(hashed_password, str):
         hashed_password = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
@@ -58,13 +58,37 @@ def get_all_users_from_db():
     return users
 
 def login():
-    username_input = input("Username: ").strip()
-    password_input = input("Password: ").strip()
+    MAX_STRIKES = 4
+    strike_count = 0
+    while strike_count < MAX_STRIKES:
+        username_input = input("Username: ").strip()
+        if not isinstance(username_input, str) or username_input == "":
+            print("Username moet een niet-lege tekst zijn.")
+            strike_count += 1
+        else:
+            break
+    else:
+        print("Te veel ongeldige pogingen voor gebruikersnaam. Probeer het later opnieuw.")
+        return None
+
+    strike_count = 0
+    while strike_count < MAX_STRIKES:
+        password_input = input("Password: ").strip()
+        if not isinstance(password_input, str) or password_input == "":
+            print("Password moet een niet-lege tekst zijn.")
+            strike_count += 1
+        else:
+            break
+    else:
+        print("Te veel ongeldige pogingen voor wachtwoord. Probeer het later opnieuw.")
+        return None
 
     if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
         log_action(username_input, "Super Admin login", False)
         print("Super Admin logged in successfully.")
-        return {"username": username_input, "role": "super_admin"}
+        user = {"username": username_input, "role": "super_admin"}
+        show_suspicious_alert()
+        return user
 
     all_users = get_all_users_from_db()
     for user in all_users:
@@ -72,7 +96,12 @@ def login():
             if verify_password(password_input, user["password"]):
                 log_action(username_input, f"Login as {user['role']}", False)
                 print(f"Logged in as {user['role']}.")
-                return {"username": encrypt_data(user["username"]), "role": user["role"]}
+                user_obj = {"username": encrypt_data(user["username"]), "role": user["role"]}
+                
+                if user["role"] in ["admin", "super_admin"]:
+                    show_suspicious_alert()
+                
+                return user_obj
             else:
                 log_action(username_input, "Login failed: invalid password", True)
                 print("Invalid password.")
@@ -81,6 +110,7 @@ def login():
     log_action(username_input, "Login failed: user not found", True)
     print("User not found.")
     return None
+
 
 def logout(user):
     log_action(user["username"], "User logged out", False)

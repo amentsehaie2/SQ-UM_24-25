@@ -24,7 +24,8 @@ def log_activity(username, description, additional_info="", suspicious=False):
         "username": username,
         "description": description,
         "additional_info": additional_info,
-        "suspicious": suspicious
+        "suspicious": suspicious,
+        "read": False
     }
     
     # JSON NEEDED FOR ENCRYPTION
@@ -37,6 +38,57 @@ def log_activity(username, description, additional_info="", suspicious=False):
             log_file.write(encrypted_log_entry)
     except Exception as e:
         print(f"Error writing to log file: {e}")
+
+def get_unread_suspicious_logs():
+    """Returns a list of all unread suspicious logs."""
+    return [log for log in read_logs() if log.get("suspicious", False) and not log.get("read", False)]
+
+def mark_suspicious_logs_as_read():
+    """Marks all suspicious logs as read."""
+    logs = read_logs()
+    updated_logs = []
+    
+    for log in logs:
+        if log.get("suspicious", False) and not log.get("read", False):
+            log["read"] = True
+        updated_logs.append(log)
+    
+    try:
+        os.makedirs(_OUTPUT_DIR, exist_ok=True)
+        with open(LOG_FILE_PATH, "w") as log_file:
+            for log in updated_logs:
+                json_log = json.dumps(log)
+                encrypted_log_entry = encrypt_data(json_log) + "\n"
+                log_file.write(encrypted_log_entry)
+    except Exception as e:
+        print(f"Error updating log file: {e}")
+
+def show_suspicious_alert():
+    """Shows an alert for unread suspicious activities."""
+    unread_suspicious = get_unread_suspicious_logs()
+    if unread_suspicious:
+        print("\n" + "="*60)
+        print("🚨 SECURITY ALERT: SUSPICIOUS ACTIVITIES DETECTED 🚨")
+        print("="*60)
+        print(f"There are {len(unread_suspicious)} unread suspicious activities:")
+        print()
+        
+        for log in unread_suspicious[:5]:  
+            print(f"⚠️  [{log['timestamp']}] User: {log['username']}")
+            print(f"   Description: {log['description']}")
+            if log.get('additional_info'):
+                print(f"   Details: {log['additional_info']}")
+            print()
+        
+        if len(unread_suspicious) > 5:
+            print(f"... and {len(unread_suspicious) - 5} more suspicious activities.")
+        
+        print("="*60)
+        print("Please review the system logs immediately!")
+        print("="*60)
+        
+        return unread_suspicious
+    return []
 
 def read_logs():
     """Reads and decrypts all logs from the log file."""
