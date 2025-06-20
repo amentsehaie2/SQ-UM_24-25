@@ -46,7 +46,7 @@ def main_menu(user):
     role = user["role"]
     if role == "super_admin":
         super_admin_menu(user)
-    elif role == "system_admin":
+    elif role == "system_admin" or role == "admin":
         system_admin_menu(user)
     elif role == "engineer" or role == "service_engineer":
         service_engineer_menu(user)
@@ -92,7 +92,7 @@ def user_management_menu(current_user):
         print("8. Reset Service Engineer password")
 
         is_super_admin = current_user["role"] == "super_admin"
-        is_system_admin = current_user["role"] == "system_admin"
+        is_system_admin = current_user["role"] == "system_admin" or current_user["role"] == "admin"
 
         if is_super_admin:
             print("9. Add System Administrator")
@@ -147,7 +147,12 @@ def user_management_menu(current_user):
         elif is_system_admin and choice == 9:
             update_own_system_admin_profile(current_user)
         elif is_system_admin and choice == 10:
-            delete_own_system_admin_account(current_user)
+            account_deleted = delete_own_system_admin_account(current_user)
+            if account_deleted:
+                # Immediate logout & break from all menus
+                logout(current_user)
+                print("You have been logged out because your account was deleted.")
+                os._exit(0)  # Force exit entire program/process
         elif (is_super_admin and choice == 16) or (is_system_admin and choice == 11):
             break
         else:
