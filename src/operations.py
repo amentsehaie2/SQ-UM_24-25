@@ -911,7 +911,8 @@ def update_service_engineer_password(current_user): # WERKT VOLLEDIG
         conn.close()
 
 def delete_service_engineer(current_user):
-
+    strike_count = 0
+    service_engineer_id = None
     while strike_count < 4:
         try:
             service_engineer_id = int(input("Enter the ID of the service engineer you want to delete: "))
@@ -924,6 +925,59 @@ def delete_service_engineer(current_user):
         print("You have reached the maximum number of strikes. Please try again later.")
         log_activity(current_user["username"], f"Strike count: {strike_count}", "Maximum number of strikes reached", suspicious=True)
         return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT username, role FROM users WHERE id = ?", (service_engineer_id,))
+        result = cursor.fetchone()
+        if not result:
+            log_activity(current_user["username"], f"Failed to delete service engineer - user ID {service_engineer_id} not found")
+            print("User with that ID not found.")
+            conn.close()
+            return False
+
+        current_username_encrypted = result[0]
+        current_username = decrypt_data(current_username_encrypted)
+        user_role_encrypted = result[1]
+        user_role = decrypt_data(user_role_encrypted)
+
+        if user_role != "engineer":
+            log_activity(current_user["username"], f"Failed to delete - user ID {service_engineer_id} is not a service engineer", suspicious=True)
+            print("User with that ID is not a Service Engineer.")
+            conn.close()
+            return False
+
+        confirmation = input(f"Are you sure you want to delete service engineer with ID {service_engineer_id}? (yes/no): ")
+        if confirmation.lower() == "yes":
+            cursor.execute("DELETE FROM users WHERE id = ?", (service_engineer_id,))
+            conn.commit()
+            if cursor.rowcount > 0:
+                log_activity(current_user["username"], f"Successfully deleted service engineer {current_username} (ID: {service_engineer_id})")
+                print("Service engineer deleted successfully.")
+                conn.close()
+                return True
+            else:
+                log_activity(current_user["username"], f"Failed to delete service engineer - no rows affected for ID {service_engineer_id}", suspicious=True)
+                print("Failed to delete service engineer - no changes made to database.")
+                conn.close()
+                return False
+        else:
+            log_activity(current_user["username"], f"Service engineer deletion cancelled for user {current_username} (ID: {service_engineer_id})")
+            print("Deletion cancelled.")
+            conn.close()
+            return False
+    except sqlite3.Error as e:
+        log_activity(current_user["username"], f"Failed to delete service engineer - database error for ID {service_engineer_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"Database error occurred: {str(e)}")
+        conn.close()
+        return False
+    except Exception as e:
+        log_activity(current_user["username"], f"Failed to delete service engineer - unexpected error for ID {service_engineer_id}", f"Error: {str(e)}", suspicious=True)
+        print(f"An unexpected error occurred: {str(e)}")
+        conn.close()
+        return False
+    
 def update_fname_service_engineer(current_user): # WERKT VOLLEDIG
     """Updates the first name of a service engineer."""
     try:
@@ -1113,11 +1167,11 @@ def update_own_password_service_engineer(current_user): # CHECK
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT username, password, role FROM users WHERE id = ?", (current_user["id"],))
+        cursor.execute("SELECT username, password, role FROM users WHERE id = ?", (current_user['id'],))
         result = cursor.fetchone()
 
         if not result:
-            log_activity(current_user["username"], f"Failed to update service engineer password - user ID {current_user["id"]} not found")
+            log_activity(current_user["username"], f"Failed to update service engineer password - user ID {current_user['id']} not found")
             print("User with that ID not found.")
             conn.close()
             return
@@ -1129,11 +1183,11 @@ def update_own_password_service_engineer(current_user): # CHECK
         user_role = decrypt_data(user_role_encrypted)
 
         if user_role != "engineer":
-            log_activity(current_user["username"], f"Failed to update password - user ID {current_user["id"]} is not a service engineer", suspicious=True)
+            log_activity(current_user["username"], f"Failed to update password - user ID {current_user['id']} is not a service engineer", suspicious=True)
             print("User with that ID is not a Service Engineer.")
             conn.close()
             return
-        current_password_input = input(f"Enter the current password for service engineer ID {current_user["id"]}: ")
+        current_password_input = input(f"Enter the current password for service engineer ID {current_user['id']}: ")
         if not validate_password(current_password_input):
             log_activity(current_user["username"], f"Failed to update service engineer password - invalid format: {current_password_input}", suspicious=True)
             print("Invalid password format. Please use 12-30 alphanumeric characters, with at least one uppercase letter, one lowercase letter, and one special character.")
@@ -1141,7 +1195,7 @@ def update_own_password_service_engineer(current_user): # CHECK
             return
 
         if not bcrypt.checkpw(current_password_input.encode('utf-8'), current_password_hash):
-            log_activity(current_user["username"], f"Failed to update service engineer password - incorrect current password for ID {current_user["id"]}", suspicious=True)
+            log_activity(current_user["username"], f"Failed to update service engineer password - incorrect current password for ID {current_user['id']}", suspicious=True)
             print("Incorrect current password.")
             conn.close()
             return
@@ -1153,28 +1207,28 @@ def update_own_password_service_engineer(current_user): # CHECK
             conn.close()
             return
         if bcrypt.checkpw(new_password.encode('utf-8'), current_password_hash):
-            log_activity(current_user["username"], f"Failed to update service engineer password - new password same as current for ID {current_user["id"]}")
+            log_activity(current_user["username"], f"Failed to update service engineer password - new password same as current for ID {current_user['id']}")
             print("New password cannot be the same as the current password.")
             conn.close()
             return
 
         hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
         
-        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, current_user["id"]))
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, current_user['id']))
         conn.commit()
 
         if cursor.rowcount > 0:
-            log_activity(current_user["username"], f"Successfully updated service engineer password for user {current_username} (ID: {current_user["id"]})")
+            log_activity(current_user["username"], f"Successfully updated service engineer password for user {current_username} (ID: {current_user['id']})")
             print("Password updated successfully.")
         else:
-            log_activity(current_user["username"], f"Failed to update service engineer password - no rows affected for ID {current_user["id"]}", suspicious=True)
+            log_activity(current_user["username"], f"Failed to update service engineer password - no rows affected for ID {current_user['id']}", suspicious=True)
             print("Failed to update password - no changes made to database.")
             
     except sqlite3.Error as e:
-        log_activity(current_user["username"], f"Failed to update service engineer password - database error for ID {current_user["id"]}", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to update service engineer password - database error for ID {current_user['id']}", f"Error: {str(e)}", suspicious=True)
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
-        log_activity(current_user["username"], f"Failed to update service engineer password - unexpected error for ID {current_user["id"]}", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to update service engineer password - unexpected error for ID {current_user['id']}", f"Error: {str(e)}", suspicious=True)
         print(f"An unexpected error occurred: {str(e)}")
     finally:
         conn.close()
@@ -1404,77 +1458,60 @@ def update_system_admin_password(current_user):
         conn.close()
 
 def delete_system_admin(current_user):
-    username = input("Username to delete: ")
+    try:
+        user_id = int(input("Enter the ID of the system administrator you want to delete: "))
+    except ValueError:
+        log_activity(current_user["username"], "Failed to delete system admin - invalid ID format", suspicious=True)
+        print("Invalid ID format. Please enter a number.")
+        return
+
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        encrypted_username = encrypt_data(username)
-        cursor.execute("SELECT id, username, password, role FROM users WHERE username = ?", (encrypted_username,))
+        cursor.execute("SELECT username, role FROM users WHERE id = ?", (user_id,))
         result = cursor.fetchone()
 
         if not result:
-            log_activity(current_user["username"], f"Failed to delete system admin - username '{username}' not found")
-            print("User with that username not found.")
+            log_activity(current_user["username"], f"Failed to delete system admin - user ID {user_id} not found")
+            print("User with that ID not found.")
             conn.close()
             return
 
-        user_id = result[0]
-        current_username_encrypted = result[1]
+        current_username_encrypted = result[0]
         current_username = decrypt_data(current_username_encrypted)
-        current_password_hash = result[2]
-        user_role_encrypted = result[3]
+        user_role_encrypted = result[1]
         user_role = decrypt_data(user_role_encrypted)
 
-        if user_role != "admin":
-            log_activity(current_user["username"], f"Failed to delete - user '{username}' is not a system administrator", suspicious=True)
-            print("User with that username is not a System Administrator.")
+        if user_role != "system_admin":
+            log_activity(current_user["username"], f"Failed to delete - user ID {user_id} is not a system administrator", suspicious=True)
+            print("User with that ID is not a System Administrator.")
             conn.close()
             return
 
-        current_password_input = input(f"Enter the current password for system administrator ID {user_id}: ")
-        if not validate_password(current_password_input):
-            log_activity(current_user["username"], f"Failed to update system admin password - invalid format: {current_password_input}", suspicious=True)
-            print("Invalid password format. Please use 12-30 alphanumeric characters or special characters, with at least one uppercase letter, one lowercase letter, and one special character.")
-            conn.close()
-            return
-
-        if not bcrypt.checkpw(current_password_input.encode('utf-8'), current_password_hash):
-            log_activity(current_user["username"], f"Failed to update system admin password - incorrect current password for ID {user_id}", suspicious=True)
-            print("Incorrect current password.")
-            conn.close()
-            return
-
-        new_password = input("Enter the new password: ")
-        if not validate_password(new_password):
-            log_activity(current_user["username"], f"Failed to update system admin password - invalid format: {new_password}", suspicious=True)
-            print("Invalid password format. Please use 12-30 alphanumeric characters or special characters, with at least one uppercase letter, one lowercase letter, and one special character.")
-            conn.close()
-            return
+        confirmation = input(f"Are you sure you want to delete system administrator with ID {user_id}? (yes/no): ")
+        if confirmation.lower() == "yes":
+            cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
         
-        if bcrypt.checkpw(new_password.encode('utf-8'), current_password_hash):
-            log_activity(current_user["username"], f"Failed to update system admin password - new password same as current for ID {user_id}")
-            print("New password cannot be the same as the current password.")
+            if cursor.rowcount > 0:
+                log_activity(current_user["username"], f"Successfully deleted system administrator {current_username} (ID: {user_id})")
+                print("System administrator deleted successfully.")
+            else:
+                log_activity(current_user["username"], f"Failed to delete system admin - no rows affected for ID {user_id}", suspicious=True)
+                print("Failed to delete system admin - no changes made to database.")
+
+        elif confirmation.lower() != "yes":
+            log_activity(current_user["username"], f"System admin deletion cancelled for user {current_username} (ID: {user_id})")
+            print("Deletion cancelled.")
             conn.close()
             return
 
-        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-        
-        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, user_id))
-        conn.commit()
-        
-        if cursor.rowcount > 0:
-            log_activity(current_user["username"], f"Successfully deleted system administrator {current_username} (ID: {user_id})")
-            print("System administrator deleted successfully.")
-        else:
-            log_activity(current_user["username"], f"Failed to delete system admin - no rows affected for ID {user_id}", suspicious=True)
-            print("Failed to delete system admin - no changes made to database.")
-            
     except sqlite3.Error as e:
-        log_activity(current_user["username"], f"Failed to delete system admin - database error for username '{username}'", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to delete system admin - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
-        log_activity(current_user["username"], f"Failed to delete system admin - unexpected error for username '{username}'", f"Error: {str(e)}", suspicious=True)
+        log_activity(current_user["username"], f"Failed to delete system admin - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
         print(f"An unexpected error occurred: {str(e)}")
     finally:
         conn.close()
@@ -1819,112 +1856,85 @@ def reset_system_admin_password(current_user): # WERKT VOLLEDIG
         conn.close()
 
 def update_own_system_admin_profile(current_user):
-    """Laat een system admin z'n eigen profiel updaten (username, password, fname, lname)."""
+    """Allows a system admin to update their own username, password, first name, and last name."""
     if current_user["role"] != "system_admin":
-        print("Alleen een system administrator kan zijn eigen profiel aanpassen.")
+        print("Only a system administrator can update their own profile.")
         return
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    user_id = current_user["id"]
+    user_id = current_user['id']
 
-    # --- Gebruikersnaam wijzigen ---
-    strike_count = 0
-    while strike_count < 4:
-        new_username = input("Nieuwe gebruikersnaam (laat leeg om niet te wijzigen): ").strip()
+    # --- Username update ---
+    for _ in range(4):
+        new_username = input("New username (leave blank to skip): ").strip()
         if new_username == "":
             break
-        if not isinstance(new_username, str) or not validate_username(new_username):
-            print("Ongeldig formaat gebruikersnaam.")
-            strike_count += 1
+        if not validate_username(new_username):
+            print("Invalid username format.")
             continue
-        cursor.execute("SELECT username FROM users WHERE id != ?", (user_id,))
-        usernames = [decrypt_data(row[0]) for row in cursor.fetchall()]
+        # Check uniqueness
+        cursor.execute("SELECT id, username FROM users WHERE id != ?", (user_id,))
+        usernames = [decrypt_data(row[1]) for row in cursor.fetchall()]
         if new_username in usernames:
-            print("Gebruikersnaam is al in gebruik.")
-            strike_count += 1
+            print("Username is already taken.")
             continue
         cursor.execute("UPDATE users SET username = ? WHERE id = ?", (encrypt_data(new_username), user_id))
+        current_user["username"] = new_username  # Update session
+        print("Username updated.")
         break
-    if strike_count >= 4:
-        print("Te veel ongeldige pogingen bij gebruikersnaam.")
-        conn.close()
-        return
 
-    # --- Voornaam wijzigen ---
-    strike_count = 0
-    while strike_count < 4:
-        new_fname = input("Nieuwe voornaam (laat leeg om niet te wijzigen): ").strip()
+    # --- First name update ---
+    for _ in range(4):
+        new_fname = input("New first name (leave blank to skip): ").strip()
         if new_fname == "":
             break
-        if not isinstance(new_fname, str) or not validate_fname(new_fname):
-            print("Ongeldig formaat voornaam.")
-            strike_count += 1
+        if not validate_fname(new_fname):
+            print("Invalid first name format.")
             continue
         cursor.execute("UPDATE users SET first_name = ? WHERE id = ?", (encrypt_data(new_fname), user_id))
+        print("First name updated.")
         break
-    if strike_count >= 4:
-        print("Te veel ongeldige pogingen bij voornaam.")
-        conn.close()
-        return
 
-    # --- Achternaam wijzigen ---
-    strike_count = 0
-    while strike_count < 4:
-        new_lname = input("Nieuwe achternaam (laat leeg om niet te wijzigen): ").strip()
+    # --- Last name update ---
+    for _ in range(4):
+        new_lname = input("New last name (leave blank to skip): ").strip()
         if new_lname == "":
             break
-        if not isinstance(new_lname, str) or not validate_lname(new_lname):
-            print("Ongeldig formaat achternaam.")
-            strike_count += 1
+        if not validate_lname(new_lname):
+            print("Invalid last name format.")
             continue
         cursor.execute("UPDATE users SET last_name = ? WHERE id = ?", (encrypt_data(new_lname), user_id))
+        print("Last name updated.")
         break
-    if strike_count >= 4:
-        print("Te veel ongeldige pogingen bij achternaam.")
-        conn.close()
-        return
 
-    # --- Wachtwoord wijzigen ---
-    strike_count = 0
-    while strike_count < 4:
-        old_password = input("Huidig wachtwoord (laat leeg om niet te wijzigen): ").strip()
+    # --- Password update ---
+    for _ in range(4):
+        old_password = input("Current password (leave blank to skip): ").strip()
         if old_password == "":
             break
         cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
         result = cursor.fetchone()
         if not result or not bcrypt.checkpw(old_password.encode('utf-8'), result[0]):
-            print("Oud wachtwoord klopt niet.")
-            strike_count += 1
+            print("Current password is incorrect.")
             continue
-        # Vraag nieuw wachtwoord
-        pw_strike = 0
-        while pw_strike < 4:
-            new_password = input("Nieuw wachtwoord: ").strip()
-            if not isinstance(new_password, str) or not validate_password(new_password):
-                print("Ongeldig formaat wachtwoord.")
-                pw_strike += 1
+        for _ in range(4):
+            new_password = input("New password: ").strip()
+            if not validate_password(new_password):
+                print("Invalid password format.")
                 continue
             if bcrypt.checkpw(new_password.encode('utf-8'), result[0]):
-                print("Nieuw wachtwoord mag niet hetzelfde zijn als het oude wachtwoord.")
-                pw_strike += 1
+                print("New password cannot be the same as the old password.")
                 continue
             hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
             cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, user_id))
+            print("Password updated.")
             break
-        if pw_strike >= 4:
-            print("Te veel ongeldige pogingen bij wachtwoord.")
-            conn.close()
-            return
         break
-    if strike_count >= 4:
-        print("Te veel ongeldige pogingen bij wachtwoord.")
-        conn.close()
-        return
 
     conn.commit()
     conn.close()
-    print("Je profiel is bijgewerkt.")
+    print("Your profile has been updated.")
 
 def delete_own_system_admin_account(current_user):
     """Laat een system admin z'n eigen account verwijderen na wachtwoordcheck."""
@@ -1934,7 +1944,7 @@ def delete_own_system_admin_account(current_user):
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    user_id = current_user["id"]
+    user_id = current_user['id']
 
     strike_count = 0
     while strike_count < 4:

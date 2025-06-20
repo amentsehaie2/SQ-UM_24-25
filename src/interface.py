@@ -11,7 +11,7 @@ from operations import (
     add_system_admin, update_system_admin_username, update_system_admin_password,
     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
     make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db, use_restore_code_db,
-    list_users, BACKUP_DIR, update_own_system_admin_profile, delete_own_system_admin_account
+    list_users, BACKUP_DIR, update_own_system_admin_profile, delete_own_system_admin_account, update_own_password_service_engineer
 )
 from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
 
@@ -242,6 +242,7 @@ def view_suspicious_logs():
         print("✅ All suspicious activities marked as read.")
     else:
         print("⚠️  Suspicious activities remain unread.")
+
 def system_admin_menu(user):
     while True:
         print("\n--- System Admin Menu ---")
@@ -287,12 +288,10 @@ def system_administration_menu(current_user):
         choice = get_int_input(f"Select an option ({min_opt}-{max_opt}): ", min_opt, max_opt, current_user)
         if choice is None:
             break
-
         if choice == 1:
             print_logs()
         elif choice == 2:
-            backup_name = make_backup(current_user)
-            print(f"Backup gemaakt: {backup_name}")
+            update_own_username_system_admin(current_user)
         elif choice == 3:
             if current_user["role"] in ["system_admin", "super_admin"]:
                 strike_count = 0
@@ -385,7 +384,7 @@ def service_engineer_menu(user):
         elif choice == 2:
             update_scooter_by_engineer(user)
         elif choice == 3:
-            update_service_engineer_password(user)
+            update_own_password_service_engineer(user)
         elif choice == 4:
             print("Logging out...")
             break
