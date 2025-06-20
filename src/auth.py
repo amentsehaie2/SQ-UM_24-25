@@ -3,6 +3,7 @@ import sys
 import sqlite3
 import bcrypt
 from datetime import datetime
+from logger import log_activity, show_suspicious_alert
 
 from database import DATABASE_NAME, get_user_by_username
 from encryption import encrypt_data
@@ -85,7 +86,9 @@ def login():
     if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
         log_action(username_input, "Super Admin login", False)
         print("Super Admin logged in successfully.")
-        return {"username": username_input, "role": "super_admin"}
+        user = {"username": username_input, "role": "super_admin"}
+        show_suspicious_alert()
+        return user
 
     all_users = get_all_users_from_db()
     for user in all_users:
@@ -93,7 +96,12 @@ def login():
             if verify_password(password_input, user["password"]):
                 log_action(username_input, f"Login as {user['role']}", False)
                 print(f"Logged in as {user['role']}.")
-                return {"username": encrypt_data(user["username"]), "role": user["role"]}
+                user_obj = {"username": encrypt_data(user["username"]), "role": user["role"]}
+                
+                if user["role"] in ["admin", "super_admin"]:
+                    show_suspicious_alert()
+                
+                return user_obj
             else:
                 log_action(username_input, "Login failed: invalid password", True)
                 print("Invalid password.")
