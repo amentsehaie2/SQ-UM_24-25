@@ -1,4 +1,5 @@
 from auth import login, logout
+from encryption import decrypt_data
 from operations import (
     add_traveller, update_traveller, delete_traveller, search_travellers,
     add_scooter, update_scooter, delete_scooter, search_scooters,
@@ -7,7 +8,7 @@ from operations import (
     reset_service_engineer_password, update_scooter_by_engineer,
     add_system_admin, update_system_admin_username, update_system_admin_password,
     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
-    make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db,
+    make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db, use_restore_code_db,
     list_users,
 )
 from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
@@ -178,7 +179,7 @@ def scooter_management_menu(current_user):
             break
         if choice == 1:
             if current_user["role"] in ["super_admin", "system_admin"]:
-                add_scooter()
+                add_scooter(current_user)
             else:
                 print("Permission denied: Only System Admin or Super Admin can add scooters.")
                 log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
@@ -186,18 +187,18 @@ def scooter_management_menu(current_user):
             if current_user["role"] in ["super_admin", "system_admin"]:
                 update_scooter()
             elif current_user["role"] in ["engineer", "service_engineer"]:
-                update_scooter_by_engineer()
+                update_scooter_by_engineer(current_user)
             else:
                 print("Permission denied.")
                 log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 3:
             if current_user["role"] in ["super_admin", "system_admin"]:
-                delete_scooter()
+                delete_scooter(current_user)
             else:
                 print("Permission denied: Only System Admin or Super Admin can delete scooters.")
                 log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 4:
-            search_scooters()
+            search_scooters(current_user)
         elif choice == 5:
             break
         else:
@@ -254,7 +255,7 @@ def system_admin_menu(user):
             print("Invalid option. Please try again.")
             log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
 
-def system_administration_menu(user):
+def system_administration_menu(current_user):
     while True:
         print("\n--- System Administration ---")
         print("1. View system logs")
@@ -266,28 +267,74 @@ def system_administration_menu(user):
         choice = get_int_input("Select an option (1-6): ", 1, 6, user)
         if choice is None:
             break
+
         if choice == 1:
             print_logs()
         elif choice == 2:
-            make_backup()
+            backup_name = make_backup(current_user)
+            print(f"Backup gemaakt: {backup_name}")
         elif choice == 3:
-            # Alleen System Admin mag restore uitvoeren!
-            if user["role"] == "system_admin":
-                restore_backup_by_name()
+            if current_user["role"] == "system_admin":
+                strike_count = 0
+                while strike_count < 4:
+                    restore_code = input("Voer je restore-code in: ").strip()
+                    if isinstance(restore_code, str) and restore_code:
+                        ok, backup_name = use_restore_code_db(decrypt_data(current_user["username"]), restore_code, current_user)
+                        if not ok:
+                            print("Restore-code ongeldig of niet voor deze gebruiker!")
+                            strike_count += 1
+                        else:
+                            restore_backup_by_name(current_user, backup_name)
+                            break
+                    else:
+                        print("Restore-code mag niet leeg zijn.")
+                        strike_count += 1
+                if strike_count >= 4:
+                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
             else:
                 print("Only a System Administrator can restore a backup!")
                 log_activity(user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 4:
-            # Alleen Super Admin mag een restore-code genereren!
-            if user["role"] == "super_admin":
-                generate_restore_code_db()
+            if current_user["role"] == "super_admin":
+                strike_count = 0
+                while strike_count < 4:
+                    target_sysadmin = input("Voor welke System Admin? Username: ").strip()
+                    if isinstance(target_sysadmin, str) and target_sysadmin:
+                        break
+                    else:
+                        print("Gebruikersnaam mag niet leeg zijn.")
+                        strike_count += 1
+                if strike_count >= 4:
+                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
+                    continue
+                strike_count = 0
+                while strike_count < 4:
+                    backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
+                    if isinstance(backup_name, str) and backup_name:
+                        break
+                    else:
+                        print("Backupnaam mag niet leeg zijn.")
+                        strike_count += 1
+                if strike_count >= 4:
+                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
+                    continue
+                generate_restore_code_db(target_sysadmin, backup_name,current_user)
             else:
                 print("Only a Super Administrator can generate a restore-code!")
                 log_activity(user["username"], "Permission denied", "Permission denied", suspicious=True)
         elif choice == 5:
-            # Alleen Super Admin mag restore-codes intrekken!
-            if user["role"] == "super_admin":
-                revoke_restore_code_db()
+            if current_user["role"] == "super_admin":
+                strike_count = 0
+                while strike_count < 4:
+                    code = input("Welke restore-code intrekken? ").strip()
+                    if isinstance(code, str) and code:
+                        revoke_restore_code_db(code,current_user)
+                        break
+                    else:
+                        print("Code mag niet leeg zijn.")
+                        strike_count += 1
+                if strike_count >= 4:
+                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
             else:
                 print("Only a Super Administrator can revoke a restore-code!")
                 log_activity(user["username"], "Permission denied", "Permission denied", suspicious=True)
@@ -297,32 +344,24 @@ def system_administration_menu(user):
             print("Invalid option. Please try again.")
             log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
 
-def service_engineer_menu(user):
+
+def service_engineer_menu(current_user):
     while True:
         print("\n--- Service Engineer Menu ---")
         print("1. Search Scooter")
         print("2. Update Scooter attributes")
-        print("3. Update own username")
-        print("4. Update own password")
-        print("5. Update own first name")
-        print("6. Update own last name")
-        print("7. Uitloggen")
-        choice = get_int_input("Select an option (1-7): ", 1, 7, user)
+        print("3. Update own password")
+        print("4. Uitloggen")
+        choice = get_int_input("Select an option (1-4): ", 1, 4)
         if choice is None:
             break
         if choice == 1:
-            search_scooters(user)
+            search_scooters(current_user)
         elif choice == 2:
-            update_scooter_by_engineer(user)
+            update_scooter_by_engineer(current_user)
         elif choice == 3:
-            update_service_engineer_username(user)
+            update_service_engineer_password(current_user)
         elif choice == 4:
-            update_service_engineer_password(user)
-        elif choice == 5:
-            update_fname_service_engineer(user)
-        elif choice == 6:
-            update_lname_service_engineer(user)
-        elif choice == 7:
             print("Logging out...")
             break
         else:

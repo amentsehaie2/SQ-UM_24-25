@@ -1776,43 +1776,30 @@ def reset_system_admin_password(current_user): # WERKT VOLLEDIG
         conn.close()
 
 # === Backup Functions ===
-def make_backup(current_user):
-    """Makes a backup of the database."""
+def make_backup(current_user): #jayden
     os.makedirs(BACKUP_DIR, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_name = f"urban_mobility_backup_{timestamp}.zip"
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     shutil.make_archive(backup_path.replace(".zip", ""), 'zip', _OUTPUT_DIR)
-    if os.path.exists(backup_path):
-        log_activity(current_user["username"], f"Backup created: {backup_name}", suspicious=False)
-        print(f"Backup created: {backup_name}")
-        return backup_name
-    else:
-        log_activity(current_user["username"], f"Backup FAILED: {backup_name}", suspicious=True)
-        print(f"Backup FAILED: {backup_name}")
-        return None
+    log_activity("system", f"Backup made: {backup_name}", suspicious=False)
+    print(f"Backup made: {backup_name}")
+    return backup_name
 
 def restore_backup_by_name(current_user, backup_name):
     """Restore zip-backup, only system admins can do this, through a code."""
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     if not os.path.exists(backup_path):
-        print("Backup niet gevonden!")
-        log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
+        print("Backup not found!")
         return False
     # Verwijder bestaande .db bestanden
     for file in os.listdir(_OUTPUT_DIR):
         if file.endswith('.db'):
             os.remove(os.path.join(_OUTPUT_DIR, file))
     shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
-    if os.path.exists(backup_path):
-        os.remove(backup_path)
-        log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
-        print(f"Backup '{backup_name}' succesvol hersteld.")
-        return True
-    else:
-        log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
-        print(f"Backup FAILED: {backup_name}")
-        return False
+    log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
+    print(f"Backup '{backup_name}' succesfully recoverd.")
+    return True
 
 # === Restore-code management ===
 def generate_restore_code_db(target_system_admin, backup_name, current_user):
@@ -1850,7 +1837,7 @@ def use_restore_code_db(current_username, code, current_user):
                 f.write(line)
     return found, backup_name
 
-def revoke_restore_code_db(code, current_user):
+def revoke_restore_code_db(code,current_user):
     if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore-codes-bestand niet gevonden!")
         log_activity("super_admin", "revoke_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)
