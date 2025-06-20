@@ -11,12 +11,12 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 db_path = os.path.join(project_root, "output", "urban_mobility.db")
 os.makedirs(os.path.join(project_root, "output"), exist_ok=True)
 
-# Tabel legen (voor betrouwbare tests)
-conn = sqlite3.connect(db_path)
-cursor = conn.cursor()
-cursor.execute("DELETE FROM users")  # Leegt de users-tabel
-conn.commit()
-conn.close()
+# # Tabel legen (voor betrouwbare tests)
+# conn = sqlite3.connect(db_path)
+# cursor = conn.cursor()
+# cursor.execute("DELETE FROM users")  # Leegt de users-tabel
+# conn.commit()
+# conn.close()
 
 from database import (
     add_user, get_user_by_username, update_user_password, delete_user_by_username,
@@ -31,7 +31,9 @@ from operations import (
 print("=== TEST: USER CRUD ===")
 test_username = "JaydenTest"
 test_pw = "Leukewachtwoord123!"
-test_role = "system_admin"
+test_role = "system_admin"  # Rol voor de testgebruiker
+test_name = "Jayden"
+test_lname = "Doe"
 
 print("> Valideer wachtwoord:", test_pw)
 print("Wachtwoord validatie resultaat:", validate_password(test_pw))
@@ -40,14 +42,14 @@ print("> Probeer gebruiker toe te voegen...")
 add_user(test_username, test_pw, test_role)
 print("Gebruiker toegevoegd!")
 
-# user = get_user_by_username(test_username)
-# print("Gebruiker opgehaald uit database:", user)
-# assert user is not None, "User toevoegen mislukt!"
+user = get_user_by_username(test_username)
+print("Gebruiker opgehaald uit database:", user)
+assert user is not None, "User toevoegen mislukt!"
 
-# print("> Wachtwoord controleren...")
-# pw_result = verify_password(test_pw, user["password"])
-# print("Wachtwoordcontrole:", pw_result)
-# assert pw_result, "Wachtwoordcontrole mislukt!"
+print("> Wachtwoord controleren...")
+pw_result = verify_password(test_pw, user["password"])
+print("Wachtwoordcontrole:", pw_result)
+assert pw_result, "Wachtwoordcontrole mislukt!"
 
 # print("> Wachtwoord updaten...")
 # update_user_password(test_username, "NieuwWachtwoord!456")
@@ -113,19 +115,19 @@ print("Gebruiker toegevoegd!")
 
 # # ===== TEST: BACKUP/RESTORE ZIP FILE FUNCTIONS =====
 # print("\n=== TEST: BACKUP/RESTORE ZIP FILE FUNCTIONS ===")
-# backup_name = make_backup()
+# backup_name = make_backup(user_obj)
 # print("Backup gemaakt:", backup_name)
 
 # # Simuleer een 'restore' met code functionaliteit
-# code = generate_restore_code_db(test_username, backup_name)
+# code = generate_restore_code_db(test_username, backup_name, user_obj)
 # print("Restore-code gegenereerd:", code)
 
-# ok, backup = use_restore_code_db(test_username, code)
+# ok, backup = use_restore_code_db(test_username, code, user_obj)
 # assert ok and backup == backup_name, "Restore-code niet bruikbaar!"
 # print("Restore-code correct gebruikt.")
 
 # # Tweede keer proberen (moet mislukken)
-# ok2, backup2 = use_restore_code_db(test_username, code)
+# ok2, backup2 = use_restore_code_db(test_username, code, user_obj)
 # assert not ok2, "Restore-code kan niet twee keer gebruikt worden!"
 # print("Restore-code is correct ongeldig na gebruik.")
 

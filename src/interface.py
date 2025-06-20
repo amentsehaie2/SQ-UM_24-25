@@ -1,4 +1,5 @@
 from auth import login, logout
+from encryption import decrypt_data
 from operations import (
     add_traveller, update_traveller, delete_traveller, search_travellers,
     add_scooter, update_scooter, delete_scooter, search_scooters,
@@ -7,7 +8,7 @@ from operations import (
     reset_service_engineer_password, update_scooter_by_engineer,
     add_system_admin, update_system_admin_username, update_system_admin_password,
     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
-    make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db,
+    make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db, use_restore_code_db,
     list_users,
 )
 from logger import print_logs
@@ -61,7 +62,7 @@ def super_admin_menu(user):
         if choice == 1:
             user_management_menu(user)
         elif choice == 2:
-            traveller_management_menu()
+            traveller_management_menu(user)
         elif choice == 3:
             scooter_management_menu(user)
         elif choice == 4:
@@ -101,39 +102,39 @@ def user_management_menu(current_user):
         if choice == 1:
             list_users()
         elif choice == 2:
-            add_service_engineer()
+            add_service_engineer(current_user)
         elif choice == 3:
-            update_service_engineer_username()
+            update_service_engineer_username(current_user)
         elif choice == 4:
-            update_service_engineer_password()
+            update_service_engineer_password(current_user)
         elif choice == 5:
-            update_fname_service_engineer()
+            update_fname_service_engineer(current_user)
         elif choice == 6:
-            update_lname_service_engineer()
+            update_lname_service_engineer(current_user)
         elif choice == 7:
-            delete_service_engineer()
+            delete_service_engineer(current_user)
         elif choice == 8:
-            reset_service_engineer_password()
+            reset_service_engineer_password(current_user)
         elif is_super_admin and choice == 9:
-            add_system_admin()
+            add_system_admin(current_user)
         elif is_super_admin and choice == 10:
-            update_system_admin_username()
+            update_system_admin_username(current_user)
         elif is_super_admin and choice == 11:
-            update_system_admin_password()
+            update_system_admin_password(current_user)
         elif is_super_admin and choice == 12:
-            update_fname_system_admin()
+            update_fname_system_admin(current_user)
         elif is_super_admin and choice == 13:
-            update_lname_system_admin()
+            update_lname_system_admin(current_user)
         elif is_super_admin and choice == 14:
-            delete_system_admin()
+            delete_system_admin(current_user)
         elif is_super_admin and choice == 15:
-            reset_system_admin_password()
+            reset_system_admin_password(current_user)
         elif (is_super_admin and choice == 16) or (not is_super_admin and choice == 9):
             break
         else:
             print("Invalid option. Please try again.")
 
-def traveller_management_menu():
+def traveller_management_menu(user):
     while True:
         print("\n--- Traveller Management ---")
         print("1. Add Traveller")
@@ -145,13 +146,13 @@ def traveller_management_menu():
         if choice is None:
             break
         if choice == 1:
-            add_traveller()
+            add_traveller(user)
         elif choice == 2:
-            update_traveller()
+            update_traveller(user)
         elif choice == 3:
-            delete_traveller()
+            delete_traveller(user)
         elif choice == 4:
-            search_travellers()
+            search_travellers(user)
         elif choice == 5:
             break
 
@@ -168,23 +169,23 @@ def scooter_management_menu(current_user):
             break
         if choice == 1:
             if current_user["role"] in ["super_admin", "system_admin"]:
-                add_scooter()
+                add_scooter(current_user)
             else:
                 print("Permission denied: Only System Admin or Super Admin can add scooters.")
         elif choice == 2:
             if current_user["role"] in ["super_admin", "system_admin"]:
                 update_scooter()
             elif current_user["role"] in ["engineer", "service_engineer"]:
-                update_scooter_by_engineer()
+                update_scooter_by_engineer(current_user)
             else:
                 print("Permission denied.")
         elif choice == 3:
             if current_user["role"] in ["super_admin", "system_admin"]:
-                delete_scooter()
+                delete_scooter(current_user)
             else:
                 print("Permission denied: Only System Admin or Super Admin can delete scooters.")
         elif choice == 4:
-            search_scooters()
+            search_scooters(current_user)
         elif choice == 5:
             break
 
@@ -202,7 +203,7 @@ def system_admin_menu(user):
         if choice == 1:
             user_management_menu(user)
         elif choice == 2:
-            traveller_management_menu()
+            traveller_management_menu(user)
         elif choice == 3:
             scooter_management_menu(user)
         elif choice == 4:
@@ -211,7 +212,7 @@ def system_admin_menu(user):
             print("Logging out...")
             break
 
-def system_administration_menu(user):
+def system_administration_menu(current_user):
     while True:
         print("\n--- System Administration ---")
         print("1. View system logs")
@@ -223,57 +224,95 @@ def system_administration_menu(user):
         choice = get_int_input("Select an option (1-6): ", 1, 6)
         if choice is None:
             break
+
         if choice == 1:
             print_logs()
         elif choice == 2:
-            make_backup()
+            backup_name = make_backup(current_user)
+            print(f"Backup gemaakt: {backup_name}")
         elif choice == 3:
-            # Alleen System Admin mag restore uitvoeren!
-            if user["role"] == "system_admin":
-                restore_backup_by_name()
+            if current_user["role"] == "system_admin":
+                strike_count = 0
+                while strike_count < 4:
+                    restore_code = input("Voer je restore-code in: ").strip()
+                    if isinstance(restore_code, str) and restore_code:
+                        ok, backup_name = use_restore_code_db(decrypt_data(current_user["username"]), restore_code, current_user)
+                        if not ok:
+                            print("Restore-code ongeldig of niet voor deze gebruiker!")
+                            strike_count += 1
+                        else:
+                            restore_backup_by_name(current_user, backup_name)
+                            break
+                    else:
+                        print("Restore-code mag niet leeg zijn.")
+                        strike_count += 1
+                if strike_count >= 4:
+                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
             else:
                 print("Only a System Administrator can restore a backup!")
         elif choice == 4:
-            # Alleen Super Admin mag een restore-code genereren!
-            if user["role"] == "super_admin":
-                generate_restore_code_db()
+            if current_user["role"] == "super_admin":
+                strike_count = 0
+                while strike_count < 4:
+                    target_sysadmin = input("Voor welke System Admin? Username: ").strip()
+                    if isinstance(target_sysadmin, str) and target_sysadmin:
+                        break
+                    else:
+                        print("Gebruikersnaam mag niet leeg zijn.")
+                        strike_count += 1
+                if strike_count >= 4:
+                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
+                    continue
+                strike_count = 0
+                while strike_count < 4:
+                    backup_name = input("Welke backup (volledige bestandsnaam)? ").strip()
+                    if isinstance(backup_name, str) and backup_name:
+                        break
+                    else:
+                        print("Backupnaam mag niet leeg zijn.")
+                        strike_count += 1
+                if strike_count >= 4:
+                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
+                    continue
+                generate_restore_code_db(target_sysadmin, backup_name,current_user)
             else:
                 print("Only a Super Administrator can generate a restore-code!")
         elif choice == 5:
-            # Alleen Super Admin mag restore-codes intrekken!
-            if user["role"] == "super_admin":
-                revoke_restore_code_db()
+            if current_user["role"] == "super_admin":
+                strike_count = 0
+                while strike_count < 4:
+                    code = input("Welke restore-code intrekken? ").strip()
+                    if isinstance(code, str) and code:
+                        revoke_restore_code_db(code,current_user)
+                        break
+                    else:
+                        print("Code mag niet leeg zijn.")
+                        strike_count += 1
+                if strike_count >= 4:
+                    print("Te veel ongeldige pogingen. Keer terug naar menu.")
             else:
                 print("Only a Super Administrator can revoke a restore-code!")
         elif choice == 6:
             break
 
-def service_engineer_menu(user):
+
+def service_engineer_menu(current_user):
     while True:
         print("\n--- Service Engineer Menu ---")
         print("1. Search Scooter")
         print("2. Update Scooter attributes")
-        print("3. Update own username")
-        print("4. Update own password")
-        print("5. Update own first name")
-        print("6. Update own last name")
-        print("7. Uitloggen")
-        choice = get_int_input("Select an option (1-7): ", 1, 7)
+        print("3. Update own password")
+        print("4. Uitloggen")
+        choice = get_int_input("Select an option (1-4): ", 1, 4)
         if choice is None:
             break
         if choice == 1:
-            search_scooters()
+            search_scooters(current_user)
         elif choice == 2:
-            update_scooter_by_engineer()
+            update_scooter_by_engineer(current_user)
         elif choice == 3:
-            update_service_engineer_username()
+            update_service_engineer_password(current_user)
         elif choice == 4:
-            update_service_engineer_password()
-        elif choice == 5:
-            update_fname_service_engineer()
-        elif choice == 6:
-            update_lname_service_engineer()
-        elif choice == 7:
             print("Logging out...")
             break
 

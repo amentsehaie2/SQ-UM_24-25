@@ -579,7 +579,7 @@ def update_scooter(current_user):
         print(f"An unexpected error occurred: {str(e)}")
         return False
 
-def update_scooter_by_engineer():
+def update_scooter_by_engineer(current_user):
     scooter_id = input("Enter the Scooter ID to update: ").strip()
     if not scooter_id.isdigit():
         print("Invalid Scooter ID format.")
@@ -2380,21 +2380,21 @@ def reset_system_admin_password(current_user): # WERKT VOLLEDIG
         conn.close()
 
 # === Backup Functions ===
-def make_backup(): #jayden
+def make_backup(current_user): #jayden
     os.makedirs(BACKUP_DIR, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_name = f"urban_mobility_backup_{timestamp}.zip"
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     shutil.make_archive(backup_path.replace(".zip", ""), 'zip', _OUTPUT_DIR)
-    log_activity("system", f"Backup gemaakt: {backup_name}", suspicious=False)
-    print(f"Backup gemaakt: {backup_name}")
+    log_activity("system", f"Backup made: {backup_name}", suspicious=False)
+    print(f"Backup made: {backup_name}")
     return backup_name
 
 def restore_backup_by_name(current_user, backup_name):
     """Restore zip-backup, alleen voor System Admin via restore-code."""
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     if not os.path.exists(backup_path):
-        print("Backup niet gevonden!")
+        print("Backup not found!")
         return False
     # Verwijder bestaande .db bestanden
     for file in os.listdir(_OUTPUT_DIR):
@@ -2402,11 +2402,11 @@ def restore_backup_by_name(current_user, backup_name):
             os.remove(os.path.join(_OUTPUT_DIR, file))
     shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
     log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
-    print(f"Backup '{backup_name}' succesvol hersteld.")
+    print(f"Backup '{backup_name}' succesfully recoverd.")
     return True
 
 # === Restore-code management ===
-def generate_restore_code_db(target_system_admin, backup_name):
+def generate_restore_code_db(target_system_admin, backup_name, current_user):
     """Genereert een restore-code, gekoppeld aan een System Admin en een specifieke backup."""
     code = str(uuid.uuid4())
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
@@ -2416,7 +2416,7 @@ def generate_restore_code_db(target_system_admin, backup_name):
     print(f"Restore-code voor {target_system_admin}: {code}")
     return code
 
-def use_restore_code_db(current_username, code):
+def use_restore_code_db(current_username, code, current_user):
     """
     Valideert een restore-code, koppelt aan de juiste System Admin & backup,
     markeert de code als gebruikt. Returnt (True, backup_name) bij succes, anders (False, None).
@@ -2439,7 +2439,7 @@ def use_restore_code_db(current_username, code):
                 f.write(line)
     return found, backup_name
 
-def revoke_restore_code_db(code):
+def revoke_restore_code_db(code,current_user):
     if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore-codes-bestand niet gevonden!")
         return
