@@ -66,7 +66,7 @@ def super_admin_menu(user):
         if choice == 1:
             user_management_menu(user)
         elif choice == 2:
-            traveller_management_menu()
+            traveller_management_menu(user)
         elif choice == 3:
             scooter_management_menu(user)
         elif choice == 4:
@@ -107,33 +107,33 @@ def user_management_menu(current_user):
         if choice == 1:
             list_users()
         elif choice == 2:
-            add_service_engineer()
+            add_service_engineer(current_user)
         elif choice == 3:
-            update_service_engineer_username()
+            update_service_engineer_username(current_user)
         elif choice == 4:
-            update_service_engineer_password()
+            update_service_engineer_password(current_user)
         elif choice == 5:
-            update_fname_service_engineer()
+            update_fname_service_engineer(current_user)
         elif choice == 6:
-            update_lname_service_engineer()
+            update_lname_service_engineer(current_user)
         elif choice == 7:
-            delete_service_engineer()
+            delete_service_engineer(current_user)
         elif choice == 8:
-            reset_service_engineer_password()
+            reset_service_engineer_password(current_user)
         elif is_super_admin and choice == 9:
-            add_system_admin()
+            add_system_admin(current_user)
         elif is_super_admin and choice == 10:
-            update_system_admin_username()
+            update_system_admin_username(current_user)
         elif is_super_admin and choice == 11:
-            update_system_admin_password()
+            update_system_admin_password(current_user)
         elif is_super_admin and choice == 12:
-            update_fname_system_admin()
+            update_fname_system_admin(current_user)
         elif is_super_admin and choice == 13:
-            update_lname_system_admin()
+            update_lname_system_admin(current_user)
         elif is_super_admin and choice == 14:
-            delete_system_admin()
+            delete_system_admin(current_user)
         elif is_super_admin and choice == 15:
-            reset_system_admin_password()
+            reset_system_admin_password(current_user)
         elif (is_super_admin and choice == 16) or (not is_super_admin and choice == 9):
             break
         else:
@@ -152,13 +152,13 @@ def traveller_management_menu(user):
         if choice is None:
             break
         if choice == 1:
-            add_traveller()
+            add_traveller(user)
         elif choice == 2:
-            update_traveller()
+            update_traveller(user)
         elif choice == 3:
-            delete_traveller()
+            delete_traveller(user)
         elif choice == 4:
-            search_travellers()
+            search_travellers(user)
         elif choice == 5:
             break
         else:
@@ -311,17 +311,17 @@ def service_engineer_menu(user):
         if choice is None:
             break
         if choice == 1:
-            search_scooters()
+            search_scooters(user)
         elif choice == 2:
-            update_scooter_by_engineer()
+            update_scooter_by_engineer(user)
         elif choice == 3:
-            update_service_engineer_username()
+            update_service_engineer_username(user)
         elif choice == 4:
-            update_service_engineer_password()
+            update_service_engineer_password(user)
         elif choice == 5:
-            update_fname_service_engineer()
+            update_fname_service_engineer(user)
         elif choice == 6:
-            update_lname_service_engineer()
+            update_lname_service_engineer(user)
         elif choice == 7:
             print("Logging out...")
             break
