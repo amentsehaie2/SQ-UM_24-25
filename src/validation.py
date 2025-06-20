@@ -111,10 +111,10 @@ def validate_city(city_name) -> bool:
     if not isinstance(city_name, str) or not city_name.strip():
         return False
     cities = {
-        "Rotterdam", "Amsterdam", "Den Bosch", "Groningen", "Den Haag",
-        "Maastricht", "Lelystad", "Utrecht", "Haarlem", "Breda"
+        "rotterdam", "amsterdam", "denbosch", "groningen", "denhaag",
+        "maastricht", "lelystad", "utrecht", "haarlem", "breda"
     }
-    return city_name.strip() in cities
+    return city_name.strip().lower() in cities
 
 def validate_brand(brand) -> bool:
     return isinstance(brand, str)
