@@ -90,13 +90,16 @@ def initialize_db():
 # --- User management ---
 
 def add_user(username, password, role):
+    """
+    Adds a new user to the database with encrypted username and role, and hashed password.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
     encrypted_username = encrypt_data(username)
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     encrypted_role = encrypt_data(role)
     registration_date = datetime.now()
-    print("DEBUG: Encrypted username bij insert:", encrypted_username)
+    print("DEBUG: Encrypted username at insert:", encrypted_username)
     try:
         cursor.execute("""
             INSERT INTO users (username, password, role, registration_date)
@@ -110,8 +113,8 @@ def add_user(username, password, role):
 
 def get_user_by_username(username):
     """
-    Haalt een gebruiker op door alle gebruikers te laden, username te decrypten en te vergelijken.
-    Dit werkt altijd, zelfs als usernames encrypted zijn met een random key/IV per encryptie.
+    Retrieves a user by loading all users, decrypting each username and comparing.
+    This works even if usernames are encrypted with a random key/IV per encryption.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -132,10 +135,12 @@ def get_user_by_username(username):
     return None
 
 def update_user_password(username, new_password):
-    """Reset het wachtwoord van een gebruiker (gebruikersnaam in plain text)."""
+    """
+    Resets the password for a user (plain text username).
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
-    # zoek op decrypt!
+    # search by decrypted username!
     cursor.execute("SELECT id, username FROM users")
     rows = cursor.fetchall()
     user_id = None
@@ -150,7 +155,9 @@ def update_user_password(username, new_password):
     conn.close()
 
 def delete_user_by_username(username):
-    """Verwijdert een gebruiker op basis van username (in plain text)."""
+    """
+    Deletes a user based on their username (plain text).
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, username FROM users")
@@ -166,7 +173,9 @@ def delete_user_by_username(username):
     conn.close()
 
 def get_users_by_role(role):
-    """Haalt alle users op en filtert in Python op role (decrypted)."""
+    """
+    Retrieves all users and filters them in Python by role (decrypted).
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT username, role, registration_date FROM users")
@@ -181,6 +190,7 @@ def get_users_by_role(role):
             })
     conn.close()
     return users
+
 
 # --- Travellers management ---
 def add_traveller(first_name, last_name, birth_date, gender, street_name, house_number, zip_code, city, email, phone_number, mobile_phone, license_number):

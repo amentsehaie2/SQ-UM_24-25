@@ -2015,9 +2015,6 @@ def delete_own_system_admin_account(current_user):
     conn.close()
     return False
 
-
-
-
 # === Backup Functions ===
 def make_backup(current_user):
     """Makes a backup of the database."""
