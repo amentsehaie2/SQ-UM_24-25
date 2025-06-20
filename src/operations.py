@@ -14,6 +14,7 @@ from validation import (
 )
 from encryption import encrypt_data, decrypt_data
 from logger import log_activity, print_logs
+from database import get_user_by_username
 
 # Use the same DB path logic as database.py
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1828,14 +1829,12 @@ def restore_backup_by_name(current_user, backup_name):
         print(f"Backup FAILED: {backup_name}")
         return False
 
-# === Restore-code management ===
 def generate_restore_code_db(target_system_admin, backup_name, current_user):
-    """Genereert een restore-code, gekoppeld aan een System Admin en een specifieke backup."""
     code = str(uuid.uuid4())
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     with open(RESTORE_CODE_FILE, "a", encoding="utf-8") as f:
         f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
-    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin}", suspicious=False)
+    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin} backup: {backup_name}", suspicious=False)
     print(f"Restore-code voor {target_system_admin}: {code}")
     return code
 
