@@ -14,6 +14,7 @@ from validation import (
 )
 from encryption import encrypt_data, decrypt_data
 from logger import log_activity, print_logs
+from database import get_user_by_username
 
 # Use the same DB path logic as database.py
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1817,186 +1818,204 @@ def reset_system_admin_password(current_user): # WERKT VOLLEDIG
     finally:
         conn.close()
 
-def delete_service_engineer(current_user): # WERKT VOLLEDIG
-    """Deletes a service engineer by their ID."""
-    try:
-        user_id = int(input("Enter the ID of the service engineer you want to delete: "))
-    except ValueError:
-        log_activity(current_user["username"], "Failed to delete service engineer - invalid ID format", suspicious=True)
-        print("Invalid ID format. Please enter a number.")
+def update_own_system_admin_profile(current_user):
+    """Laat een system admin z'n eigen profiel updaten (username, password, fname, lname)."""
+    if current_user["role"] != "system_admin":
+        print("Alleen een system administrator kan zijn eigen profiel aanpassen.")
         return
 
     conn = get_db_connection()
     cursor = conn.cursor()
+    user_id = current_user["id"]
 
-    try:
-        cursor.execute("SELECT username, role FROM users WHERE id = ?", (user_id,))
+    # --- Gebruikersnaam wijzigen ---
+    strike_count = 0
+    while strike_count < 4:
+        new_username = input("Nieuwe gebruikersnaam (laat leeg om niet te wijzigen): ").strip()
+        if new_username == "":
+            break
+        if not isinstance(new_username, str) or not validate_username(new_username):
+            print("Ongeldig formaat gebruikersnaam.")
+            strike_count += 1
+            continue
+        cursor.execute("SELECT username FROM users WHERE id != ?", (user_id,))
+        usernames = [decrypt_data(row[0]) for row in cursor.fetchall()]
+        if new_username in usernames:
+            print("Gebruikersnaam is al in gebruik.")
+            strike_count += 1
+            continue
+        cursor.execute("UPDATE users SET username = ? WHERE id = ?", (encrypt_data(new_username), user_id))
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen bij gebruikersnaam.")
+        conn.close()
+        return
+
+    # --- Voornaam wijzigen ---
+    strike_count = 0
+    while strike_count < 4:
+        new_fname = input("Nieuwe voornaam (laat leeg om niet te wijzigen): ").strip()
+        if new_fname == "":
+            break
+        if not isinstance(new_fname, str) or not validate_fname(new_fname):
+            print("Ongeldig formaat voornaam.")
+            strike_count += 1
+            continue
+        cursor.execute("UPDATE users SET first_name = ? WHERE id = ?", (encrypt_data(new_fname), user_id))
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen bij voornaam.")
+        conn.close()
+        return
+
+    # --- Achternaam wijzigen ---
+    strike_count = 0
+    while strike_count < 4:
+        new_lname = input("Nieuwe achternaam (laat leeg om niet te wijzigen): ").strip()
+        if new_lname == "":
+            break
+        if not isinstance(new_lname, str) or not validate_lname(new_lname):
+            print("Ongeldig formaat achternaam.")
+            strike_count += 1
+            continue
+        cursor.execute("UPDATE users SET last_name = ? WHERE id = ?", (encrypt_data(new_lname), user_id))
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen bij achternaam.")
+        conn.close()
+        return
+
+    # --- Wachtwoord wijzigen ---
+    strike_count = 0
+    while strike_count < 4:
+        old_password = input("Huidig wachtwoord (laat leeg om niet te wijzigen): ").strip()
+        if old_password == "":
+            break
+        cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
         result = cursor.fetchone()
-
-        if not result:
-            log_activity(current_user["username"], f"Failed to delete service engineer - user ID {user_id} not found")
-            print("User with that ID not found.")
+        if not result or not bcrypt.checkpw(old_password.encode('utf-8'), result[0]):
+            print("Oud wachtwoord klopt niet.")
+            strike_count += 1
+            continue
+        # Vraag nieuw wachtwoord
+        pw_strike = 0
+        while pw_strike < 4:
+            new_password = input("Nieuw wachtwoord: ").strip()
+            if not isinstance(new_password, str) or not validate_password(new_password):
+                print("Ongeldig formaat wachtwoord.")
+                pw_strike += 1
+                continue
+            if bcrypt.checkpw(new_password.encode('utf-8'), result[0]):
+                print("Nieuw wachtwoord mag niet hetzelfde zijn als het oude wachtwoord.")
+                pw_strike += 1
+                continue
+            hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, user_id))
+            break
+        if pw_strike >= 4:
+            print("Te veel ongeldige pogingen bij wachtwoord.")
             conn.close()
             return
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen bij wachtwoord.")
+        conn.close()
+        return
 
-        current_username_encrypted = result[0]
-        current_username = decrypt_data(current_username_encrypted)
-        user_role_encrypted = result[1]
-        user_role = decrypt_data(user_role_encrypted)
+    conn.commit()
+    conn.close()
+    print("Je profiel is bijgewerkt.")
 
-        if user_role != "engineer":
-            log_activity(current_user["username"], f"Failed to delete - user ID {user_id} is not a service engineer", suspicious=True)
-            print("User with that ID is not a Service Engineer.")
-            conn.close()
-            return
+def delete_own_system_admin_account(current_user):
+    """Laat een system admin z'n eigen account verwijderen na wachtwoordcheck."""
+    if current_user["role"] != "system_admin":
+        print("Alleen een system administrator kan zijn eigen account verwijderen.")
+        return
 
-        confirmation = input(f"Are you sure you want to delete service engineer with ID {user_id}? (yes/no): ")
-        if confirmation.lower() == "yes":
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    user_id = current_user["id"]
+
+    strike_count = 0
+    while strike_count < 4:
+        password = input("Voer je wachtwoord in ter bevestiging: ").strip()
+        if not isinstance(password, str) or password == "":
+            print("Wachtwoord mag niet leeg zijn.")
+            strike_count += 1
+            continue
+        cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
+        result = cursor.fetchone()
+        if not result or not bcrypt.checkpw(password.encode('utf-8'), result[0]):
+            print("Wachtwoord klopt niet.")
+            strike_count += 1
+            continue
+        break
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen. Account wordt NIET verwijderd.")
+        conn.close()
+        return
+
+    strike_count = 0
+    while strike_count < 4:
+        confirmation = input("Weet je zeker dat je je account wilt verwijderen? Typ 'ja' om te bevestigen: ").strip().lower()
+        if confirmation == "ja":
             cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
             conn.commit()
-            return False
-        if confirm == "yes":
-            cursor.execute("DELETE FROM users WHERE id=?", (user_id,))
-            conn.commit()
-
-            if cursor.rowcount == 0:
-                print("Service Engineer ID does not exist.")
-                log_activity(current_user["username"], "Failed to delete service engineer - service engineer ID does not exist", suspicious=True)
-                conn.close()
-                return False
-
-            if cursor.rowcount > 0:
-                print("Service engineer deleted.")
-                log_activity(current_user["username"], "Deleted service engineer", "Success", suspicious=False)
-                conn.close()
-                return True
-            else:
-                log_activity(current_user["username"], f"Failed to delete service engineer - no rows affected for ID {user_id}", suspicious=True)
-                print("Failed to delete service engineer - no changes made to database.")
-        elif confirmation.lower() != "yes":
-            log_activity(current_user["username"], f"Service engineer deletion cancelled for user {current_username} (ID: {user_id})")
-            print("Deletion cancelled.")
-            conn.close()
-            return
-
-    except sqlite3.Error as e:
-        log_activity(current_user["username"], f"Failed to delete service engineer - database error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"Database error occurred: {str(e)}")
-    except Exception as e:
-        log_activity(current_user["username"], f"Failed to delete service engineer - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
-    finally:
-        conn.close()
-
-def update_own_password_service_engineer(current_user):
-    username = current_user.get("username", "unknown")
-    if username is None:
-        print("Error: User ID not found in session. Please log in again.")
-        log_activity(username, "update_own_password_service_engineer", "No user ID in session", suspicious=True)
-        return
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT username, password, role FROM users WHERE id = ?", (username,))
-        result = cursor.fetchone()
-        if not result:
-            log_activity(username, f"Failed to update service engineer password - username {username} not found")
-            print("User with that username not found.")
-            conn.close()
-            return
-
-        current_username_encrypted = result[0]
-        current_username = decrypt_data(current_username_encrypted)
-        current_password_hash = result[1]
-        user_role_encrypted = result[2]
-        user_role = decrypt_data(user_role_encrypted)
-
-        if user_role != "engineer":
-            log_activity(username, f"Failed to update password - user {username} is not a service engineer", suspicious=True)
-            print("User with that username is not a Service Engineer.")
-            conn.close()
-            return
-
-        current_password_input = input(f"Enter your current password: ")
-        if not validate_password(current_password_input):
-            log_activity(username, f"Failed to update service engineer password - invalid format: {current_password_input}", suspicious=True)
-            print("Invalid password format. Please use 12-30 alphanumeric characters, with at least one uppercase letter, one lowercase letter, and one special character.")
-            conn.close()
-            return
-
-        if not bcrypt.checkpw(current_password_input.encode('utf-8'), current_password_hash):
-            log_activity(username, f"Failed to update service engineer password - incorrect current password for user {username}", suspicious=True)
-            print("Incorrect current password.")
-            conn.close()
-            return
-
-        new_password = input("Enter the new password: ")
-        if not validate_password(new_password):
-            log_activity(username, f"Failed to update service engineer password - invalid format: {new_password}", suspicious=True)
-            print("Invalid password format. Please use 12-30 alphanumeric characters, with at least one uppercase letter, one lowercase letter, and one special character.")
-            conn.close()
-            return
-        if bcrypt.checkpw(new_password.encode('utf-8'), current_password_hash):
-            log_activity(username, f"Failed to update service engineer password - new password same as current for user {username}")
-            print("New password cannot be the same as the current password.")
-            conn.close()
-            return
-
-        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, username))
-        conn.commit()
-
-        if cursor.rowcount > 0:
-            log_activity(username, f"Successfully updated service engineer password for user {current_username} (ID: {username})")
-            print("Password updated successfully.")
+            print("Je account is verwijderd. Je wordt nu uitgelogd.")
+            break
         else:
-            log_activity(username, f"Failed to update service engineer password - no rows affected for ID {username}", suspicious=True)
-            print("Failed to update password - no changes made to database.")
+            print("Verwijderen niet bevestigd. Typ 'ja' om door te gaan.")
+            strike_count += 1
+    if strike_count >= 4:
+        print("Te veel ongeldige pogingen. Account wordt NIET verwijderd.")
+    conn.close()
 
-    except sqlite3.Error as e:
-        log_activity(username, f"Failed to update service engineer password - database error for ID {username}", f"Error: {str(e)}", suspicious=True)
-        print(f"Database error occurred: {str(e)}")
-    except Exception as e:
-        log_activity(username, f"Failed to update service engineer password - unexpected error for ID {username}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
-    finally:
-        conn.close()
 
 # === Backup Functions ===
-def make_backup(current_user): #jayden
+def make_backup(current_user):
+    """Makes a backup of the database."""
     os.makedirs(BACKUP_DIR, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_name = f"urban_mobility_backup_{timestamp}.zip"
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     shutil.make_archive(backup_path.replace(".zip", ""), 'zip', _OUTPUT_DIR)
-    log_activity("system", f"Backup made: {backup_name}", suspicious=False)
-    print(f"Backup made: {backup_name}")
-    return backup_name
+    if os.path.exists(backup_path):
+        log_activity(current_user["username"], f"Backup created: {backup_name}", suspicious=False)
+        print(f"Backup created: {backup_name}")
+        return backup_name
+    else:
+        log_activity(current_user["username"], f"Backup FAILED: {backup_name}", suspicious=True)
+        print(f"Backup FAILED: {backup_name}")
+        return None
 
 def restore_backup_by_name(current_user, backup_name):
     """Restore zip-backup, only system admins can do this, through a code."""
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     if not os.path.exists(backup_path):
-        print("Backup not found!")
+        print("Backup niet gevonden!")
+        log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
         return False
     # Verwijder bestaande .db bestanden
     for file in os.listdir(_OUTPUT_DIR):
         if file.endswith('.db'):
             os.remove(os.path.join(_OUTPUT_DIR, file))
     shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
-    log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
-    print(f"Backup '{backup_name}' succesfully recoverd.")
-    return True
+    if os.path.exists(backup_path):
+        os.remove(backup_path)
+        log_activity(current_user, f"Backup gerestored: {backup_name}", suspicious=False)
+        print(f"Backup '{backup_name}' succesvol hersteld.")
+        return True
+    else:
+        log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
+        print(f"Backup FAILED: {backup_name}")
+        return False
 
-# === Restore-code management ===
 def generate_restore_code_db(target_system_admin, backup_name, current_user):
-    """Genereert een restore-code, gekoppeld aan een System Admin en een specifieke backup."""
     code = str(uuid.uuid4())
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     with open(RESTORE_CODE_FILE, "a", encoding="utf-8") as f:
         f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
-    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin}", suspicious=False)
+    log_activity("super_admin", f"Restore-code gegenereerd voor {target_system_admin} backup: {backup_name}", suspicious=False)
     print(f"Restore-code voor {target_system_admin}: {code}")
     return code
 
@@ -2025,7 +2044,7 @@ def use_restore_code_db(current_username, code, current_user):
                 f.write(line)
     return found, backup_name
 
-def revoke_restore_code_db(code,current_user):
+def revoke_restore_code_db(code, current_user):
     if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore-codes-bestand niet gevonden!")
         log_activity("super_admin", "revoke_restore_code_db", "Restore-codes-bestand niet gevonden", suspicious=True)
