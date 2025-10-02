@@ -130,24 +130,5 @@ def delete_logs():
     except Exception as e:
         print(f"Error deleting logs: {e}")
 
-def get_suspicious_logs():
-    """Geeft een lijst van alle verdachte logs."""
-    return [log for log in read_logs() if log.get("suspicious", False)]
-
 if __name__ == '__main__':
-
-    # Adding logs
-    # log_activity("test_user", "Pipe | Test", "Special & Characters", True)
-    # log_activity("test_user", "boohooy | Test", "Special & Characters", False)
-    # log_activity("test_user", "attempted sql injection", "Special & Characters", True)
-    
-
-    # Reading logs
     print_logs()
-
-    # Deleting logs
-    # delete_logs()    
- 
-    # Test security
-    #log_activity("hacker", "Attempted SQL: DROP TABLE users;", "", True)
-    #print("All tests passed!")

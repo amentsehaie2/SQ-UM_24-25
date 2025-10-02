@@ -4,6 +4,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.fernet import Fernet
 import sys
+from logger import log_activity
 
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
@@ -55,6 +56,7 @@ def _initialize_keys():
                     format=serialization.PublicFormat.SubjectPublicKeyInfo
                 ))
             print(f"Generated new RSA key pair and saved to {_PRIVATE_KEY_FILE} and {_PUBLIC_KEY_FILE}")
+            log_activity("system", "Generated new RSA key pair", suspicious=False)
 
         if os.path.exists(_SYMMETRIC_KEY_FILE):
             with open(_SYMMETRIC_KEY_FILE, "rb") as f:
@@ -66,11 +68,13 @@ def _initialize_keys():
             with open(_SYMMETRIC_KEY_FILE, "wb") as f:
                 f.write(encrypted_fernet_key)
             print(f"Generated new Fernet key, encrypted it, and saved to {_SYMMETRIC_KEY_FILE}")
+            log_activity("system", "Generated new symmetric encryption key", suspicious=False)
         
         encryptor = Fernet(fernet_key)
 
     except Exception as e:
         print(f"Error during key initialization: {e}")
+        log_activity("system", f"Key initialization error: {e}", suspicious=True)
         raise SystemExit(f"Could not initialize encryption keys: {e}")
 
 
