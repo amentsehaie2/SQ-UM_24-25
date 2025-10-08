@@ -1,40 +1,51 @@
-import re  
+import re
 import datetime
 
 def validate_password(password) -> bool:
-    """
+    """ 
     Validates if the password:
     - has a length of at least 12 and at most 30 characters,
     - contains only allowed characters,
     - contains at least one lowercase letter, one uppercase letter, one digit, and one special character.
     """
-    if isinstance(password, str):
-        return True
-    if (12 <= len(password) <= 30):
-        return True
+    if not (12 <= len(password) <= 30):
+        return False
     allowed_specials = r"~!@#$%&_\-\+=`|\(\)\{\}\[\]:;'<>,\.?/"
     pattern = rf"^[A-Za-z0-9{re.escape(allowed_specials)}]+$"
-    if  re.fullmatch(pattern, password):
+    if all(re.search(r, password) for r in [r'[a-z]', r'[A-Z]', r'\d', f"[{re.escape(allowed_specials)}]"]) and re.fullmatch(pattern, password):
         return True
-    if  re.search(r'[a-z]', password):
-        return True
-    if  re.search(r'[A-Z]', password):
-        return True
-    if  re.search(r'\d', password):
-        return True
-    if  re.search(f"[{re.escape(allowed_specials)}]", password):
-        return True
+    # if  re.fullmatch(pattern, password):
+    #     return True
+    # if  re.search(r'[a-z]', password):
+    #     return True
+    # if  re.search(r'[A-Z]', password):
+    #     return True
+    # if  re.search(r'\d', password):
+    #     return True
+    # if  re.search(f"[{re.escape(allowed_specials)}]", password):
+    #     return True
     return False
 
-def validate_fname(first_name) -> bool:
+# def valid_zipcode(blank=False):
+#     while True:
+#         print("Enter zipcode (e.g., 1234AB): ")
+#         zipcode= input("Enter a valid zipcode").upper()
+#         if blank and zipcode == '':
+#             return None
+        
+#         if re.fullmatch('^[1-9][0-9]{3}[A-Z]{2}$', zipcode) is not None:
+#             return zipcode
+#         print("Invalid zipcode")
+
+def validate_fname(first_name: str) -> bool:
     """
     Validates if the first name is a string of 1 to 19 alphabetic characters.
     """
-    if isinstance(first_name, str) and bool(re.fullmatch(r'^[A-Za-z]{1,19}$', first_name)):
+    if re.fullmatch(r'^[A-Za-z]{1,19}$', first_name) is not None:
         return True
     return False
 
-def validate_lname(last_name) -> bool:
+def validate_lname(last_name: str) -> bool:
     """
     Validates if the last name is a string of 1 to 19 alphabetic characters.
     """
@@ -42,13 +53,11 @@ def validate_lname(last_name) -> bool:
         return True
     return False
 #################
-def validate_birth_date(birth_date) -> bool:
+def validate_birth_date(birth_date: str) -> bool:
     """
     Validates if the birth date is a string in the ISO 8601 format 'YYYY-MM-DD'.
     Example: '2000-01-01'
     """
-    if isinstance(birth_date, str):
-        return True
     if datetime.date.fromisoformat(birth_date):
         return True
     # Moet geldige datum ook? #
@@ -63,12 +72,12 @@ def validate_gender(gender) -> bool:
     return False
 
 def validate_house_number(house_number) -> bool:  
-    if bool(re.fullmatch(r'^[1-9][0-9]{0,3}$', house_number)):
+    if re.fullmatch(r'^[1-9][0-9]{0,3}$', house_number) is not None:
         return True
     return False
 
 def validate_zip(zip_code) -> bool:  
-    if bool(re.fullmatch(r'^[1-9][0-9]{3}[A-Z]{2}$', zip_code)):
+    if re.fullmatch(r'^[1-9][0-9]{3}[A-Z]{2}$', zip_code) is not None:
         return True
     return False
 
@@ -77,16 +86,16 @@ def validate_phone(phone) -> bool:
     Validates if the phone is a string of exactly 8 digits (Dutch mobile number without country code and prefix).
     Example: '12345678'
     """
-    if bool(re.fullmatch(r'^\d{8}$', phone)):
+    if re.fullmatch(r'^\d{8}$', phone) is not None:
         return True
-    return True
+    return False
 
-def validate_email(email) -> bool:
+def validate_email(email: str) -> bool:
     if bool(re.fullmatch(r'^(?!.*\.\.)[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email)):
         return True
     return False
 
-def validate_username(username) -> bool:
+def validate_username(username: str) -> bool:
     """
     Validates if the username:
     - has a length of 8 to 10 characters,
@@ -94,18 +103,13 @@ def validate_username(username) -> bool:
     - contains only letters, numbers, underscores, apostrophes, and periods,
     - is case-insensitive (validation does not distinguish case).
     """
-    if  isinstance(username, str):
-        return True
-    if 8 <= len(username) and 10 >= len(username):
-        return True
     pattern = r'^[A-Za-z_][A-Za-z0-9_\'\.]{7,9}$'
-    if bool(re.fullmatch(pattern, username)):
-        return True
+    if 8 <= len(username) <= 10:
+        if re.fullmatch(pattern, username) is not None:
+            return True
     return False
 
 def validate_street_name(street_name) -> bool:
-    if isinstance(street_name, str):
-        return True
     return bool(re.fullmatch(r'^[A-Za-z\s]{1,50}$', street_name))
 
 def validate_license_number(license_number) -> bool:
@@ -113,12 +117,10 @@ def validate_license_number(license_number) -> bool:
         return True
     return False
 
-def validate_city(city_name) -> bool:
+def validate_city(city_name: str) -> bool:
     """
     Validates if the city_name is a non-empty string and one of the 10 predefined Dutch cities.
     """
-    if isinstance(city_name, str):
-        return True
     cities = {
         "rotterdam", "amsterdam", "denbosch", "groningen", "denhaag",
         "maastricht", "lelystad", "utrecht", "haarlem", "breda",
@@ -191,3 +193,24 @@ def validate_last_maint(date) -> bool:
     if datetime.date.fromisoformat(date):
         return True
     return False    
+
+def valid_phone_number(message, blank=False):
+    while True:
+        phone = input(message + "31-6-")
+        if blank and phone == '':
+            return None
+        
+        if re.match('^[d{0}]', phone) is not None:
+            return "+31-6-" + phone
+        print("Invalid phone number")
+
+def valid_zipcode(blank=False):
+    while True:
+        print("Enter zipcode (e.g., 1234AB): ")
+        zipcode= input("Enter a valid zipcode").upper()
+        if blank and zipcode == '':
+            return None
+        
+        if re.fullmatch('^[1-9][0-9]{3}[A-Z]{2}$', zipcode) is not None:
+            return zipcode
+        print("Invalid zipcode")
