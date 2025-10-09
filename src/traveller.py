@@ -79,7 +79,7 @@ def add_traveller(current_user=None):
     email = get_valid_input("Email: ", validate_email, "email")
     if not email:
         return
-    mobile_phone = get_valid_input("Mobile phone (8 digits): ", validate_phone, "mobile phone")
+    mobile_phone = get_valid_input("Mobile phone: 06-", validate_phone, "mobile phone")
     if not mobile_phone:
         return
     license_number = get_valid_input("License number (XXDDDDDDD or XDDDDDDDD): ", validate_license_number, "license number")

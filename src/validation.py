@@ -8,34 +8,13 @@ def validate_password(password) -> bool:
     - contains only allowed characters,
     - contains at least one lowercase letter, one uppercase letter, one digit, and one special character.
     """
-    if not (12 <= len(password) <= 30):
-        return False
     allowed_specials = r"~!@#$%&_\-\+=`|\(\)\{\}\[\]:;'<>,\.?/"
     pattern = rf"^[A-Za-z0-9{re.escape(allowed_specials)}]+$"
-    if all(re.search(r, password) for r in [r'[a-z]', r'[A-Z]', r'\d', f"[{re.escape(allowed_specials)}]"]) and re.fullmatch(pattern, password):
-        return True
-    # if  re.fullmatch(pattern, password):
-    #     return True
-    # if  re.search(r'[a-z]', password):
-    #     return True
-    # if  re.search(r'[A-Z]', password):
-    #     return True
-    # if  re.search(r'\d', password):
-    #     return True
-    # if  re.search(f"[{re.escape(allowed_specials)}]", password):
-    #     return True
+    if (12 <= len(password) <= 30):
+        if all(re.search(r, password) for r in [r'[a-z]', r'[A-Z]', r'\d', f"[{re.escape(allowed_specials)}]"]) and re.fullmatch(pattern, password):
+            return True
+        return False
     return False
-
-# def valid_zipcode(blank=False):
-#     while True:
-#         print("Enter zipcode (e.g., 1234AB): ")
-#         zipcode= input("Enter a valid zipcode").upper()
-#         if blank and zipcode == '':
-#             return None
-        
-#         if re.fullmatch('^[1-9][0-9]{3}[A-Z]{2}$', zipcode) is not None:
-#             return zipcode
-#         print("Invalid zipcode")
 
 def validate_fname(first_name: str) -> bool:
     """
@@ -59,8 +38,10 @@ def validate_birth_date(birth_date: str) -> bool:
     Example: '2000-01-01'
     """
     if datetime.date.fromisoformat(birth_date):
-        return True
+        if birth_date < datetime.date.today().strftime("%Y-%m-%d"):
+            return True
     # Moet geldige datum ook? #
+    
     return False
 #################
 def validate_gender(gender) -> bool:
