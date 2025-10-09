@@ -760,7 +760,7 @@ def update_own_system_admin_profile(current_user):
         pw_strike = 0
         while pw_strike < 4:
             new_password = input("New password: ").strip()
-            if not isinstance(new_password, str) or not validate_password(new_password):
+            if not isinstance(new_password, str) and not validate_password(new_password):
                 print("Invalid password format.")
                 pw_strike += 1
                 continue

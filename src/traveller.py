@@ -10,7 +10,7 @@ from validation import (
     validate_email, validate_username, validate_street_name, validate_license_number, validate_city,
     validate_birth_date, validate_gender, validate_brand, validate_model, validate_serial_number,
     validate_target_range, validate_top_speed, validate_battery_capacity, validate_SoC, validate_location,
-    validate_OoS, validate_mileage, validate_last_maint
+    validate_OoS, validate_mileage, validate_last_maint,
 )
 from encryption import encrypt_data, decrypt_data
 from logger import log_activity, print_logs
@@ -39,7 +39,7 @@ def add_traveller(current_user=None):
         while strikes < 3:
             value = input(prompt_text)
             try:
-                if validate_func(value):
+                if validate_func(value) == True:
                     return value
             except Exception as e:
                 print(f"Validation error: {e}")
@@ -50,37 +50,40 @@ def add_traveller(current_user=None):
         log_activity(username, "add_traveller", f"Too many strikes for {log_field}", suspicious=True)
         return None
     first_name = get_valid_input("First name: ", validate_fname, "first name")
-    if first_name is None:
+    if not first_name:
         return
     last_name = get_valid_input("Last name: ", validate_lname, "last name")
-    if last_name is None:
+    if not last_name:
+        return
+    password = get_valid_input("Password: ", validate_password, "password")
+    if not password:
         return
     birth_date = get_valid_input("Birth date (YYYY-MM-DD): ", validate_birth_date, "birth date")
-    if birth_date is None:
+    if not birth_date:
         return
     gender = get_valid_input("Gender: ", validate_gender, "gender")
-    if gender is None:
+    if not gender:
         return
     street_name = get_valid_input("Street name: ", validate_street_name, "street name")
-    if street_name is None:
+    if not street_name:
         return
     house_number = get_valid_input("House number: ", validate_house_number, "house number")
-    if house_number is None:
+    if not house_number:
         return
     zip_code = get_valid_input("Zip code: ", validate_zip, "zip code")
-    if zip_code is None:
+    if not zip_code:
         return
     city = get_valid_input("City: ", validate_city, "city")
-    if city is None:
+    if not city:
         return
     email = get_valid_input("Email: ", validate_email, "email")
-    if email is None:
+    if not email:
         return
-    mobile_phone = get_valid_input("Mobile phone (8 digits): ", validate_phone, "mobile phone")
-    if mobile_phone is None:
+    mobile_phone = get_valid_input("Mobile phone: 06-", validate_phone, "mobile phone")
+    if not mobile_phone:
         return
     license_number = get_valid_input("License number (XXDDDDDDD or XDDDDDDDD): ", validate_license_number, "license number")
-    if license_number is None:
+    if not license_number:
         return
     cursor = conn.cursor()
     registration_date = datetime.now()

@@ -19,8 +19,9 @@ from admin import (
     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
     list_users, update_own_system_admin_profile, delete_own_system_admin_account, delete_service_engineer
 )
-from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
-
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_SRC_DIR)
+BACKUP_DIR = os.path.join(_PROJECT_ROOT, "backup")
 
 def get_int_input(prompt, min_option, max_option, user):
     strike_count = 0
