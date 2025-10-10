@@ -4,7 +4,7 @@ from database import initialize_db
 from interface import main_menu  
 
 if __name__ == "__main__":  
+    initialize_db()
     current_user = login()  
     if current_user:  
         main_menu(current_user)
-        initialize_db()  

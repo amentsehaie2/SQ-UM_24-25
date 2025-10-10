@@ -5,6 +5,7 @@ import os
 import sys
 
 from encryption import _initialize_keys
+from logger import log_activity
 
 # --- INITIALIZE KEYS EARLY (BELANGRIJK!) ---
 _initialize_keys()
@@ -66,7 +67,6 @@ def initialize_db():
         )  
     """)  
 
-    # Create scooters table
     cursor.execute("""  
         CREATE TABLE IF NOT EXISTS scooters ( 
             scooter_id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -86,6 +86,14 @@ def initialize_db():
 
     conn.commit()
     conn.close()
+
+    print(f"Database initialized.")
+    log_activity("system", "Database initialized.")
+
+    _initialize_keys()
+    log_activity("system", "Encryption keys initialized.")
+    print("Encryption keys initialized.")
+
 
 # --- User management ---
 
@@ -229,7 +237,4 @@ def add_traveller(first_name, last_name, birth_date, gender, street_name, house_
 if __name__ == '__main__':
     os.makedirs(_OUTPUT_DIR, exist_ok=True) 
     initialize_db()
-    print(f"Database initialized in {DATABASE_NAME}.")
-    _initialize_keys()
-    print("Encryption keys initialized.")
 

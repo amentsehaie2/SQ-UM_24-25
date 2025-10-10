@@ -29,13 +29,6 @@ def verify_password(password, hashed_password):
         hashed_password = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
 
-def log_action(username, description, suspicious=False):
-    flag = "SUSPICIOUS" if suspicious else "OK"
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_line = f"{now} | {username} | {description} | {flag}\n"
-    with open(os.path.join(os.path.dirname(__file__), "activity.log"), "a", encoding="utf-8") as f:
-        f.write(log_line)
-
 def get_all_users_from_db():
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
@@ -66,10 +59,12 @@ def login():
         if not isinstance(username_input, str) or username_input == "":
             print("Username must be a non-empty string.")
             strike_count += 1
+            log_activity("unknown user", "Unsuccessful login attempt", f"Strike Count: {strike_count}", suspicious=True)
         else:
             break
     else:
         print("Too many invalid attempts for username. Please try again later.")
+        log_activity("unknown user", "Unsuccessful login attempt", f"Strike Count: {strike_count}, Maximum reached.", suspicious=True)
         return None
 
     strike_count = 0
@@ -86,7 +81,7 @@ def login():
 
     # Super Admin login
     if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
-        log_action(username_input, "Super Admin login", False)
+        log_activity(username_input, "Super Admin login", False)
         print("Super Admin logged in successfully.")
         user = {"id": 0, "username": username_input, "role": "super_admin"}
         show_suspicious_alert()
@@ -96,7 +91,7 @@ def login():
     user_db = get_user_by_username(username_input)
     if user_db:
         if verify_password(password_input, user_db["password"]):
-            log_action(username_input, f"Login as {user_db['role']}", False)
+            log_activity(username_input, f"Login as {user_db['role']}", False)
             print(f"Logged in as {user_db['role']}.")
             user_obj = {
                 "id": user_db["id"], 
@@ -107,14 +102,14 @@ def login():
                 show_suspicious_alert()
             return user_obj
         else:
-            log_action(username_input, "Login failed: invalid password", True)
+            log_activity(username_input, "Login failed: invalid password", True)
             print("Invalid password.")
             return None
 
-    log_action(username_input, "Login failed: user not found", True)
+    log_activity(username_input, "Login failed: user not found", True)
     print("User not found.")
     return None
 
 def logout(user):
-    log_action(user["username"], "User logged out", False)
+    log_activity(user["username"], "User logged out", False)
     print(f"{user['username']} has been logged out.")

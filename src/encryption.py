@@ -4,7 +4,6 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.fernet import Fernet
 import sys
-from logger import log_activity
 
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
@@ -13,12 +12,11 @@ _OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
 # --- Key file paths within the output directory ---
 _PRIVATE_KEY_FILE = os.path.join(_OUTPUT_DIR, ".private-key")
 _PUBLIC_KEY_FILE = os.path.join(_OUTPUT_DIR, ".public-key")
-_SYMMETRIC_KEY_FILE = os.path.join(_OUTPUT_DIR, ".key") # Stores the Fernet key, encrypted
+_SYMMETRIC_KEY_FILE = os.path.join(_OUTPUT_DIR, ".key")
 
 privateKey = None
 publicKey = None
-encryptor = None # This will be the Fernet instance
-
+encryptor = None 
 def _initialize_keys():
     """Ensure encryption keys exist, loading or generating them as needed."""
     global privateKey, publicKey, encryptor
@@ -26,7 +24,6 @@ def _initialize_keys():
     if encryptor is not None: # Already initialized
         return
 
-    # Ensure output directory exists
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
 
     try:
@@ -55,8 +52,6 @@ def _initialize_keys():
                     encoding=serialization.Encoding.PEM,
                     format=serialization.PublicFormat.SubjectPublicKeyInfo
                 ))
-            print(f"Generated new RSA key pair and saved to {_PRIVATE_KEY_FILE} and {_PUBLIC_KEY_FILE}")
-            log_activity("system", "Generated new RSA key pair", suspicious=False)
 
         if os.path.exists(_SYMMETRIC_KEY_FILE):
             with open(_SYMMETRIC_KEY_FILE, "rb") as f:
@@ -67,14 +62,11 @@ def _initialize_keys():
             encrypted_fernet_key = _encrypt_asymmetric(fernet_key)
             with open(_SYMMETRIC_KEY_FILE, "wb") as f:
                 f.write(encrypted_fernet_key)
-            print(f"Generated new Fernet key, encrypted it, and saved to {_SYMMETRIC_KEY_FILE}")
-            log_activity("system", "Generated new symmetric encryption key", suspicious=False)
         
         encryptor = Fernet(fernet_key)
 
     except Exception as e:
         print(f"Error during key initialization: {e}")
-        log_activity("system", f"Key initialization error: {e}", suspicious=True)
         raise SystemExit(f"Could not initialize encryption keys: {e}")
 
 
@@ -121,7 +113,6 @@ def decrypt_data(encrypted_text_data: str) -> str:
     decrypted_bytes = encryptor.decrypt(encrypted_bytes)
     return decrypted_bytes.decode('utf-8')
 
-_initialize_keys()
 
 if __name__ == '__main__':
     print("Encryption module loaded. Keys should be initialized.")
