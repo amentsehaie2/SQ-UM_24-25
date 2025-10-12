@@ -1,20 +1,12 @@
 import os
-from database import get_user_by_username 
-from auth import login, logout
-from encryption import decrypt_data
-# from operations import (
-#     add_traveller, update_traveller, delete_traveller, search_travellers,
-#     add_scooter, update_scooter, delete_scooter, search_scooters,
-#     add_service_engineer, update_service_engineer_username, update_service_engineer_password,
-#     update_fname_service_engineer, update_lname_service_engineer, delete_service_engineer,
-#     reset_service_engineer_password, update_scooter_by_engineer,
-#     add_system_admin, update_system_admin_username, update_system_admin_password,
-#     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
-#     make_backup, restore_backup_by_name, generate_restore_code_db, revoke_restore_code_db, use_restore_code_db,
-#     list_users, BACKUP_DIR, update_own_system_admin_profile, delete_own_system_admin_account, update_own_password_service_engineer,
-# )
-
-from backup import restore_backup_by_name, make_backup, generate_restore_code_db, revoke_restore_code_db, use_restore_code_db
+from database import get_user_by_username
+from auth import login, logout  
+from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
+from encryption import encrypt_data  
+from backup import (
+    restore_backup_by_name, make_backup, generate_restore_code_db,
+    revoke_restore_code_db, use_restore_code_db
+)
 from traveller import (
     add_traveller, update_traveller, delete_traveller, search_travellers
 )
@@ -31,7 +23,12 @@ from admin import (
     update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
     list_users, update_own_system_admin_profile, delete_own_system_admin_account, delete_service_engineer
 )
-from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
+
+
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_SRC_DIR)
+BACKUP_DIR = os.path.join(_PROJECT_ROOT, "backup")
+
 
 def get_int_input(prompt, min_option, max_option, user):
     strike_count = 0
@@ -52,26 +49,20 @@ def get_int_input(prompt, min_option, max_option, user):
     log_activity(user["username"], f"Strike count: {strike_count}", "Too many invalid attempts", suspicious=True)
     return None
 
-def main():
-    while True:
-        user = login()
-        if user is None:
-            continue
-        main_menu(user)
-        logout(user)
 
 def main_menu(user):
     role = user["role"]
     if role == "super_admin":
-        super_admin_menu(user)
-    elif role == "system_admin" or role == "admin":
-        system_admin_menu(user)
+        return super_admin_menu(user)
+    elif role == "system_admin": 
+        return system_admin_menu(user)
     elif role == "engineer" or role == "service_engineer":
-        service_engineer_menu(user)
+        return service_engineer_menu(user)
     else:
         print("Unknown role. Exiting.")
         log_activity(user["username"], "Unknown role", "Unknown role", suspicious=True)
-        return
+        return None
+
 
 def super_admin_menu(user):
     while True:
@@ -96,6 +87,11 @@ def super_admin_menu(user):
             print("Logging out...")
             log_activity(user["username"], "Logout", "Logout")
             break
+        else:
+            print("Invalid option. Please try again.")
+            log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
+    return None
+
 
 def user_management_menu(current_user):
     while True:
@@ -110,7 +106,7 @@ def user_management_menu(current_user):
         print("8. Reset Service Engineer password")
 
         is_super_admin = current_user["role"] == "super_admin"
-        is_system_admin = current_user["role"] == "system_admin" or current_user["role"] == "admin"
+        is_system_admin = current_user["role"] == "system_admin" 
 
         if is_super_admin:
             print("9. Add System Administrator")
@@ -167,16 +163,16 @@ def user_management_menu(current_user):
         elif is_system_admin and choice == 10:
             account_deleted = delete_own_system_admin_account(current_user)
             if account_deleted:
-                # Immediate logout & break from all menus
-                main()
-                # logout(current_user)
-                # print("You have been logged out because your account was deleted.")
-                # os._exit(0)  # Force exit entire program/process
+                print("Your account was deleted. Returning to previous menu...")
+                log_activity(current_user["username"], "Account deleted", "self-delete")
+                return  
         elif (is_super_admin and choice == 16) or (is_system_admin and choice == 11):
             break
         else:
             print("Invalid option. Please try again.")
             log_activity(current_user["username"], "Invalid option", "Invalid option", suspicious=True)
+    return None
+
 
 def traveller_management_menu(user):
     while True:
@@ -188,20 +184,48 @@ def traveller_management_menu(user):
         print("5. Back")
         choice = get_int_input("Select an option (1-5): ", 1, 5, user)
         if choice is None:
+            log_activity(user["username"], "Traveller menu: too many invalid attempts", "return", suspicious=True)
             break
+
+        is_admin = user["role"] in ["super_admin", "system_admin"] 
+
         if choice == 1:
-            add_traveller(user)
+            if is_admin:
+                add_traveller(user)
+                log_activity(user["username"], "Add Traveller", "")
+            else:
+                print("Permission denied: Only Admin or Super Admin can add travellers.")
+                log_activity(user["username"], "Permission denied", "add traveller", suspicious=True)
+
         elif choice == 2:
-            update_traveller(user)
+            if is_admin:
+                update_traveller(user)
+                log_activity(user["username"], "Update Traveller", "")
+            else:
+                print("Permission denied: Only Admin or Super Admin can update travellers.")
+                log_activity(user["username"], "Permission denied", "update traveller", suspicious=True)
+
         elif choice == 3:
-            delete_traveller(user)
+            if is_admin:
+                delete_traveller(user)
+                log_activity(user["username"], "Delete Traveller", "")
+            else:
+                print("Permission denied: Only Admin or Super Admin can delete travellers.")
+                log_activity(user["username"], "Permission denied", "delete traveller", suspicious=True)
+
         elif choice == 4:
             search_travellers(user)
+            log_activity(user["username"], "Search Traveller", "")
+
         elif choice == 5:
+            log_activity(user["username"], "Traveller menu -> Back", "")
             break
+
         else:
             print("Invalid option. Please try again.")
-            log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
+            log_activity(user["username"], "Invalid option", "traveller menu invalid option", suspicious=True)
+    return None
+
 
 def scooter_management_menu(current_user):
     while True:
@@ -215,57 +239,65 @@ def scooter_management_menu(current_user):
         if choice is None:
             break
         if choice == 1:
-            if current_user["role"] in ["super_admin", "system_admin"]:
+            if current_user["role"] in ["super_admin", "system_admin"]: 
                 add_scooter(current_user)
+                log_activity(current_user["username"], "Add Scooter", "")
             else:
-                print("Permission denied: Only System Admin or Super Admin can add scooters.")
-                log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
+                print("Permission denied: Only Admin or Super Admin can add scooters.")
+                log_activity(current_user["username"], "Permission denied", "add scooter", suspicious=True)
         elif choice == 2:
-            if current_user["role"] in ["super_admin", "system_admin"]:
+            if current_user["role"] in ["super_admin", "system_admin"]: 
                 update_scooter(current_user)
+                log_activity(current_user["username"], "Update Scooter (admin)", "")
             elif current_user["role"] in ["engineer", "service_engineer"]:
                 update_scooter_by_engineer(current_user)
+                log_activity(current_user["username"], "Update Scooter (engineer)", "")
             else:
                 print("Permission denied.")
-                log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
+                log_activity(current_user["username"], "Permission denied", "update scooter", suspicious=True)
         elif choice == 3:
-            if current_user["role"] in ["super_admin", "system_admin"]:
+            if current_user["role"] in ["super_admin", "system_admin"]:  
                 delete_scooter(current_user)
+                log_activity(current_user["username"], "Delete Scooter", "")
             else:
-                print("Permission denied: Only System Admin or Super Admin can delete scooters.")
-                log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
+                print("Permission denied: Only Admin or Super Admin can delete scooters.")
+                log_activity(current_user["username"], "Permission denied", "delete scooter", suspicious=True)
         elif choice == 4:
             search_scooters(current_user)
+            log_activity(current_user["username"], "Search Scooter", "")
         elif choice == 5:
             break
         else:
             print("Invalid option. Please try again.")
-            log_activity(current_user["username"], "Invalid option", "Invalid option", suspicious=True)
+            log_activity(current_user["username"], "Invalid option", "scooter menu invalid option", suspicious=True)
+    return None
+
 
 def view_suspicious_logs():
     """View and acknowledge suspicious logs."""
     unread_suspicious = show_suspicious_alert()
-    
+
     if not unread_suspicious:
         print("\n✅ No unread suspicious activities found.")
         return
-    
+
     print(f"\n🚨 Found some unread suspicious activities:")
     print("-" * 80)
-    
+
     for log in unread_suspicious:
         print(f"ID: {log['log_id']} | Date: {log['timestamp']} | User: {log['username']}")
         print(f"Description: {log['description']}")
         if log.get('additional_info'):
             print(f"Details: {log['additional_info']}")
         print("-" * 80)
-    
+
     acknowledge = input("\nAcknowledge these suspicious activities? (yes/no): ").strip().lower()
     if acknowledge == "yes":
         mark_suspicious_logs_as_read()
         print("✅ All suspicious activities marked as read.")
     else:
         print("⚠️  Suspicious activities remain unread.")
+
 
 def system_admin_menu(user):
     while True:
@@ -292,6 +324,8 @@ def system_admin_menu(user):
         else:
             print("Invalid option. Please try again.")
             log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
+    return None
+
 
 def system_administration_menu(current_user):
     while True:
@@ -299,50 +333,68 @@ def system_administration_menu(current_user):
         print("1. View system logs")
         print("2. Make a system backup")
         print("3. Restore a system backup")
+        print("4. View suspicious logs")
         if current_user["role"] == "super_admin":
-            print("4. Generate restore-code for System Administrator")
-            print("5. Revoke restore-code for System Administrator")
-            print("6. Back")
-            min_opt, max_opt = 1, 6
-        else:  # Only options for system_admin
-            print("4. Back")
-            min_opt, max_opt = 1, 4
+            print("5. Generate restore-code for System Administrator")
+            print("6. Revoke restore-code for System Administrator")
+            print("7. Back")
+            min_opt, max_opt = 1, 7
+        else:  
+            print("5. Back")
+            min_opt, max_opt = 1, 5
 
         choice = get_int_input(f"Select an option ({min_opt}-{max_opt}): ", min_opt, max_opt, current_user)
         if choice is None:
+            log_activity(current_user["username"], "System Admin menu: too many invalid attempts", "return", suspicious=True)
             break
+
         if choice == 1:
+            log_activity(current_user["username"], "View system logs", "")
             print_logs()
+
         elif choice == 2:
             backup_name = make_backup(current_user)
+            log_activity(current_user["username"], "Make backup", f"backup={backup_name}")
             print(f"Backup created: {backup_name}")
+
         elif choice == 3:
             if current_user["role"] in ["system_admin", "super_admin"]:
                 strike_count = 0
                 while strike_count < 4:
                     restore_code = input("Enter your restore-code: ").strip()
                     if isinstance(restore_code, str) and restore_code:
-                        ok, backup_name = use_restore_code_db(decrypt_data(current_user["username"]), restore_code, current_user)
+                        ok, backup_name = use_restore_code_db(
+                            encrypt_data(current_user["username"]),
+                            restore_code,
+                            current_user
+                        )
                         if not ok:
                             print("Restore-code invalid or not for this user!")
+                            log_activity(current_user["username"], "Restore backup failed", "invalid restore-code", suspicious=True)
                             strike_count += 1
                         else:
                             restore_backup_by_name(current_user, backup_name)
+                            log_activity(current_user["username"], "Restore backup OK", f"backup={backup_name}")
                             break
                     else:
                         print("Restore-code cannot be empty.")
                         strike_count += 1
                 if strike_count >= 4:
                     print("Too many invalid attempts. Returning to menu.")
+                    log_activity(current_user["username"], "Restore backup aborted", "too many invalid attempts", suspicious=True)
             else:
-                print("Only a System Administrator can restore a backup!")
-                log_activity(current_user["username"], "Permission denied", "Permission denied", suspicious=True)
-        elif current_user["role"] == "super_admin" and choice == 4:
-            # --- Username check ---
+                print("Only an Administrator can restore a backup!")
+                log_activity(current_user["username"], "Permission denied", "restore backup", suspicious=True)
+
+        elif choice == 4:
+            log_activity(current_user["username"], "View suspicious logs", "")
+            view_suspicious_logs()
+
+        elif current_user["role"] == "super_admin" and choice == 5:
             max_strikes = 4
             strike_count = 0
             while strike_count < max_strikes:
-                target_sysadmin = input("For which System Admin? Username: ").strip()
+                target_sysadmin = input("For which Administrator? Username: ").strip()
                 if not (isinstance(target_sysadmin, str) and target_sysadmin):
                     print("Username cannot be empty.")
                     strike_count += 1
@@ -354,9 +406,9 @@ def system_administration_menu(current_user):
                 break
             else:
                 print("Too many invalid attempts. Returning to menu.")
+                log_activity(current_user["username"], "Generate restore-code aborted", "username invalid", suspicious=True)
                 continue
 
-            # --- Backup file name check ---
             strike_count = 0
             while strike_count < max_strikes:
                 backup_name = input("Which backup (full file name)? ").strip()
@@ -372,25 +424,36 @@ def system_administration_menu(current_user):
                 break
             else:
                 print("Too many invalid attempts. Returning to menu.")
+                log_activity(current_user["username"], "Generate restore-code aborted", "backup invalid", suspicious=True)
                 continue
 
             generate_restore_code_db(target_sysadmin, backup_name, current_user)
-        elif current_user["role"] == "super_admin" and choice == 5:
+            log_activity(current_user["username"], "Generate restore-code", f"user={target_sysadmin}, backup={backup_name}")
+
+        elif current_user["role"] == "super_admin" and choice == 6:
             strike_count = 0
             while strike_count < 4:
                 code = input("Which restore-code to revoke? ").strip()
                 if isinstance(code, str) and code:
                     revoke_restore_code_db(code, current_user)
+                    log_activity(current_user["username"], "Revoke restore-code", f"code={code}")
                     break
                 else:
                     print("Code cannot be empty.")
                     strike_count += 1
             if strike_count >= 4:
                 print("Too many invalid attempts. Returning to menu.")
-        elif (current_user["role"] == "super_admin" and choice == 6) or (current_user["role"] == "system_admin" and choice == 4):
+                log_activity(current_user["username"], "Revoke restore-code aborted", "too many invalid attempts", suspicious=True)
+
+        elif (current_user["role"] == "super_admin" and choice == 7) or (current_user["role"] == "system_admin" and choice == 5):
+            log_activity(current_user["username"], "System Admin menu -> Back", "")
             break
+
         else:
             print("Invalid option. Please try again.")
+            log_activity(current_user["username"], "Invalid option", "system admin menu invalid option", suspicious=True)
+    return None
+
 
 def service_engineer_menu(user):
     while True:
@@ -404,16 +467,17 @@ def service_engineer_menu(user):
             break
         if choice == 1:
             search_scooters(user)
+            log_activity(user["username"], "Search Scooter", "")
         elif choice == 2:
             update_scooter_by_engineer(user)
+            log_activity(user["username"], "Update Scooter (engineer)", "")
         elif choice == 3:
             update_own_password_service_engineer(user)
+            log_activity(user["username"], "Update own password (engineer)", "")
         elif choice == 4:
             print("Logging out...")
             break
         else:
             print("Invalid option. Please try again.")
             log_activity(user["username"], "Invalid option", "Invalid option", suspicious=True)
-
-if __name__ == "__main__":
-    main()
+    return None
