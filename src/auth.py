@@ -3,19 +3,13 @@ import sys
 import sqlite3
 import bcrypt
 from datetime import datetime
-
-# Centrale logger (gebruiken i.p.v. eigen log_action)
 from logger import log_activity, show_suspicious_alert
 
 from database import DATABASE_NAME, get_user_by_username
-
-# Alleen decrypt is nodig in dit bestand (voor get_all_users_from_db)
 try:
     from src.encryption import decrypt_data
 except ImportError:
     from encryption import decrypt_data
-
-# Validatie (als je dit elders gebruikt, laten staan)
 try:
     from src.validation import validate_username, validate_password
 except ImportError:
@@ -62,22 +56,26 @@ def get_all_users_from_db():
 
 def login():
     MAX_STRIKES = 4
-
     strike_count = 0
     while strike_count < MAX_STRIKES:
-        username_input = input("Username: ").strip()
+        username_input = input("Username: ")
         if not isinstance(username_input, str) or username_input == "":
             print("Username must be a non-empty string.")
             strike_count += 1
-        else:
-            break
+            continue
+        if not validate_username(username_input):
+            print("Invalid username format.")
+            log_activity(username_input, "Invalid username format", suspicious=True)
+            strike_count += 1
+            continue
+        break
     else:
         print("Too many invalid attempts for username. Please try again later.")
         return None
 
     strike_count = 0
     while strike_count < MAX_STRIKES:
-        password_input = input("Password: ").strip()
+        password_input = input("Password: ")
         if not isinstance(password_input, str) or password_input == "":
             print("Password must be a non-empty string.")
             strike_count += 1
@@ -101,10 +99,10 @@ def login():
             print(f"Logged in as {user_db['role']}.")
             user_obj = {
                 "id": user_db["id"],
-                "username": user_db["username"],  
-                "role": user_db["role"]           
+                "username": user_db["username"], 
+                "role": user_db["role"]
             }
-            if user_db["role"] in ["admin", "super_admin"]:
+            if user_db["role"] in ["system_admin", "super_admin"]:
                 show_suspicious_alert()
             return user_obj
         else:
@@ -115,6 +113,7 @@ def login():
     log_activity(username_input, "Login failed: user not found", suspicious=True)
     print("User not found.")
     return None
+
 
 def logout(user):
     log_activity(user["username"], "User logged out", suspicious=False)
