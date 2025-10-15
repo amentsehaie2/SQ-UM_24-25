@@ -217,33 +217,3 @@ def validate_last_maint(date) -> bool:
     if  isinstance(date, str) and datetime.date.fromisoformat(date):
         return True
     return False    
-
-# Duplicate?
-def valid_phone_number(message, blank=False):
-    """
-    Validates a Dutch mobile phone number input.
-    """
-    while True:
-        phone = input(message + "31-6-")
-        if blank and phone == '':
-            return None
-        
-        if re.match('^[d{0}]', phone) is not None:
-            return "+31-6-" + phone
-        print("Invalid phone number")
-
-
-# Duplicate?
-def valid_zipcode(blank=False):
-    """ 
-    Validates a Dutch zipcode input.
-    """
-    while True:
-        print("Enter zipcode (e.g., 1234AB): ")
-        zipcode= input("Enter a valid zipcode")
-        if blank and zipcode == '':
-            return None
-        
-        if re.fullmatch('^[1-9][0-9]{3}[A-Z]{2}$', zipcode) is not None:
-            return zipcode
-        print("Invalid zipcode")
