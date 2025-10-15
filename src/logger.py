@@ -1,134 +1,67 @@
 import os
-import json
-from datetime import datetime
-from encryption import encrypt_data, decrypt_data
+from database import get_user_by_username
+from auth import login, logout
+from logger import mark_suspicious_logs_as_read, print_logs, show_suspicious_alert, log_activity
+from encryption import encrypt_data
+from backup import (
+    restore_backup_by_name, make_backup, generate_restore_code_db,
+    revoke_restore_code_db, use_restore_code_db
+)
+from traveller import (
+    add_traveller, update_traveller, delete_traveller, search_travellers
+)
+from engineer import (
+    add_service_engineer, update_service_engineer_username, update_service_engineer_password,
+    update_fname_service_engineer, update_lname_service_engineer,
+    reset_service_engineer_password, update_scooter_by_engineer, update_own_password_service_engineer
+)
+from scooter import (
+    add_scooter, update_scooter, delete_scooter, search_scooters
+)
+from admin import (
+    add_system_admin, update_system_admin_username, update_system_admin_password,
+    update_fname_system_admin, update_lname_system_admin, delete_system_admin, reset_system_admin_password,
+    list_users, update_own_system_admin_profile, delete_own_system_admin_account, delete_service_engineer
+)
 
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
-_OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
-LOG_FILE_PATH = os.path.join(_OUTPUT_DIR, "activities.log")
+BACKUP_DIR = os.path.join(_PROJECT_ROOT, "backup")
 
-def _get_next_log_id():
-    """Determines the next available log ID."""
-    logs = read_logs()
-    return max(log["log_id"] for log in logs) + 1 if logs else 1
 
-def log_activity(username, description, additional_info="", suspicious=False):
-    """Logs an activity to the encrypted log file using JSON format."""
-    log_id = _get_next_log_id()
-    timestamp = datetime.now().isoformat()
-    
-    log_entry = {
-        "log_id": log_id,
-        "timestamp": timestamp,
-        "username": username,
-        "description": description,
-        "additional_info": additional_info,
-        "suspicious": suspicious,
-        "read": False
-    }
-    
-    # JSON NEEDED FOR ENCRYPTION
-    json_log = json.dumps(log_entry)
-    encrypted_log_entry = encrypt_data(json_log) + "\n"
-
-    try:
-        os.makedirs(_OUTPUT_DIR, exist_ok=True)
-        with open(LOG_FILE_PATH, "a") as log_file:
-            log_file.write(encrypted_log_entry)
-    except Exception as e:
-        print(f"Error writing to log file: {e}")
-
-def get_unread_suspicious_logs():
-    """Returns a list of all unread suspicious logs."""
-    return [log for log in read_logs() if log.get("suspicious", False) and not log.get("read", False)]
-
-def mark_suspicious_logs_as_read():
-    """Marks all suspicious logs as read."""
-    logs = read_logs()
-    updated_logs = []
-    
-    for log in logs:
-        if log.get("suspicious", False) and not log.get("read", False):
-            log["read"] = True
-        updated_logs.append(log)
-    
-    try:
-        os.makedirs(_OUTPUT_DIR, exist_ok=True)
-        with open(LOG_FILE_PATH, "w") as log_file:
-            for log in updated_logs:
-                json_log = json.dumps(log)
-                encrypted_log_entry = encrypt_data(json_log) + "\n"
-                log_file.write(encrypted_log_entry)
-    except Exception as e:
-        print(f"Error updating log file: {e}")
-
-def show_suspicious_alert():
-    """Shows an alert for unread suspicious activities."""
-    unread_suspicious = get_unread_suspicious_logs()
-    if unread_suspicious:
-        print("\n" + "="*60)
-        print("🚨 SECURITY ALERT: SUSPICIOUS ACTIVITIES DETECTED 🚨")
-        print("="*60)
-        print(f"There are {len(unread_suspicious)} unread suspicious activities:")
-        print()
-        
-        for log in unread_suspicious[:5]:  
-            print(f"⚠️  [{log['timestamp']}] User: {log['username']}")
-            print(f"   Description: {log['description']}")
-            if log.get('additional_info'):
-                print(f"   Details: {log['additional_info']}")
-            print()
-        
-        if len(unread_suspicious) > 5:
-            print(f"... and {len(unread_suspicious) - 5} more suspicious activities.")
-        
-        print("="*60)
-        print("Please review the system logs immediately!")
-        print("="*60)
-        
-        return unread_suspicious
-    return []
-
-def read_logs():
-    """Reads and decrypts all logs from the log file."""
-    try:
-        os.makedirs(_OUTPUT_DIR, exist_ok=True)
-        with open(LOG_FILE_PATH, "r") as log_file:
-            encrypted_logs = log_file.readlines()
-    except FileNotFoundError:
-        return []
-    except Exception as e:
-        print(f"Error reading log file: {e}")
-        return []
-
-    decrypted_logs = []
-    for encrypted_log in encrypted_logs:
+def get_int_input(prompt, min_option, max_option, user):
+    strike_count = 0
+    while strike_count < 4:
         try:
-            decrypted_json = decrypt_data(encrypted_log.strip())
-            log_entry = json.loads(decrypted_json)
-            decrypted_logs.append(log_entry)
-        except Exception as e:
-            print(f"Error decrypting log entry: {e}")
-            continue
+            value = int(input(prompt))
+            if min_option <= value <= max_option:
+                return value
+            else:
+                print(f"Please enter a number between {min_option} and {max_option}.")
+                log_activity(user["username"], f"Strike count: {strike_count}", "Invalid input", suspicious=True)
+                strike_count += 1
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+            log_activity(user["username"], f"Strike count: {strike_count}", "Invalid input", suspicious=True)
+            strike_count += 1
+    print("Too many invalid attempts. Returning to previous menu.")
+    log_activity(user["username"], f"Strike count: {strike_count}", "Too many invalid attempts", suspicious=True)
+    return None
 
-    return decrypted_logs
 
-def print_logs():
-    logs = read_logs()
-    print("\nLogs:")
-    for log in logs:
-        print(f"ID: {log['log_id']}  |  Date: {log['timestamp']}  |  User: {log['username']}  |  Desc: {log['description']}  |  Info: {log['additional_info']}  |  Suspicious: {log['suspicious']}")    
+def main_menu(user):
+    role = user["role"]
+    if role == "super_admin":
+        return super_admin_menu(user)
+    elif role == "system_admin":
+        return system_admin_menu(user)
+    elif role == "engineer" or role == "service_engineer":
+        return service_engineer_menu(user)
+    else:
+        print("Unknown role. Exiting.")
+        log_activity(user["username"], "Unknown role", "Unknown role", suspicious=True)
+        return None
 
-def delete_logs():
-    """Deletes all logs from the log file by clearing its content."""
-    try:
-        os.makedirs(_OUTPUT_DIR, exist_ok=True)
-        with open(LOG_FILE_PATH, "w") as log_file:
-            log_file.write("")
-        print("All logs deleted successfully.")
-    except Exception as e:
-        print(f"Error deleting logs: {e}")
 
 if __name__ == '__main__':
     print_logs()
