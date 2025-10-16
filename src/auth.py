@@ -55,10 +55,17 @@ def get_all_users_from_db():
     return users
 
 def login():
+    username_input = input("Username: ")
+    password_input = input("Password: ")
+    if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
+        log_activity(username_input, "Super Admin login", False)
+        print("Super Admin logged in successfully.")
+        user = {"id": 0, "username": username_input, "role": "super_admin"}
+        show_suspicious_alert()
+        return user
     MAX_STRIKES = 4
     strike_count = 0
     while strike_count < MAX_STRIKES:
-        username_input = input("Username: ")
         if not isinstance(username_input, str) or username_input == "":
             print("Username must be a non-empty string.")
             strike_count += 1
@@ -76,7 +83,7 @@ def login():
 
     strike_count = 0
     while strike_count < MAX_STRIKES:
-        password_input = input("Password: ")
+        
         if not isinstance(password_input, str) or password_input == "":
             print("Password must be a non-empty string.")
             strike_count += 1
@@ -85,13 +92,6 @@ def login():
     else:
         print("Too many invalid attempts for password. Please try again later.")
         return None
-
-    if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
-        log_activity(username_input, "Super Admin login", False)
-        print("Super Admin logged in successfully.")
-        user = {"id": 0, "username": username_input, "role": "super_admin"}
-        show_suspicious_alert()
-        return user
 
     user_db = get_user_by_username(username_input)
     if user_db:
