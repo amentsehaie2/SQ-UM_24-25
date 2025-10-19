@@ -76,10 +76,11 @@ def add_service_engineer(current_user):# WERKT VOLLEDIG
     encrypt_fname = encrypt_data(first_name)
     encrypt_lname = encrypt_data(last_name)
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    encrypted_date = encrypt_data(datetime.now().isoformat())
 
     try:
         cursor.execute("INSERT INTO users (username, first_name, last_name, password, role, registration_date) VALUES (?, ?, ?, ?, ?, ?)",
-                       (encrypted_username,encrypt_fname, encrypt_lname, hashed_password, encrypted_role, datetime.now().isoformat()))
+                       (encrypted_username,encrypt_fname, encrypt_lname, hashed_password, encrypted_role, encrypted_date))
         conn.commit()
         
         if cursor.rowcount > 0:
