@@ -44,54 +44,115 @@ def restore_backup_by_name(current_user, backup_name):
     backup_path = os.path.join(BACKUP_DIR, backup_name)
     if not os.path.exists(backup_path):
         print("Backup not found!")
-        log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
-        return False
-    for file in os.listdir(_OUTPUT_DIR):
-        if file.endswith('.db'):
-            os.remove(os.path.join(_OUTPUT_DIR, file))
-    shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
-    if os.path.exists(backup_path):
-        if (valid_curr_sys(current_user, backup_name) == True):
-            os.remove(backup_path)
-            log_activity(current_user, f"Backup restored: {backup_name}", suspicious=False)
-            print(f"Backup '{backup_name}' succesfully restored.")
-            return True
-        return False
-    else:
-        log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
-        print(f"Backup FAILED: {backup_name}")
+        log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Backup FAILED: {backup_name}", suspicious=True)
         return False
 
-def valid_curr_sys(current_user, backup):
-    """
-    Checks if the current username exists in the restored backup database.
-    Returns True if found, False otherwise.
-    Super admins are always allowed.
-    """
-    if current_user.get("role") == "super_admin":
-        print("Super admin detected: skipping user existence check in backup.")
-        log_activity(current_user["username"], f"Super admin restored backup '{backup}' (no user check)", suspicious=False)
+    # Unpack into a temporary directory first, validate, then swap in if OK
+    temp_dir = os.path.join(BACKUP_DIR, f"tmp_restore_{uuid.uuid4().hex}")
+    try:
+        os.makedirs(temp_dir, exist_ok=True)
+        shutil.unpack_archive(backup_path, temp_dir, 'zip')
+
+        # Locate .db inside the unpacked archive
+        restored_db = None
+        for root, _, files in os.walk(temp_dir):
+            for f in files:
+                if f.endswith('.db'):
+                    restored_db = os.path.join(root, f)
+                    break
+            if restored_db:
+                break
+
+        if not restored_db:
+            print("No database file found inside the backup archive.")
+            log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Restore aborted: no DB in {backup_name}", suspicious=True)
+            return False
+
+        # Validate the current user exists in the restored DB (or allow super_admin)
+        if not valid_curr_sys(current_user, backup_name, db_path=restored_db):
+            print("Restored backup does not contain the current user. Restore aborted.")
+            log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Restore aborted: user not in {backup_name}", suspicious=True)
+            return False
+
+        # At this point validation succeeded. Replace current DB files with the restored ones.
+        # Back up current DB files first
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_current = os.path.join(BACKUP_DIR, f"pre_restore_backup_{timestamp}")
+        os.makedirs(backup_current, exist_ok=True)
+        for file in os.listdir(_OUTPUT_DIR):
+            if file.endswith('.db'):
+                shutil.move(os.path.join(_OUTPUT_DIR, file), os.path.join(backup_current, file))
+
+        # Copy restored files into _OUTPUT_DIR
+        for root, _, files in os.walk(temp_dir):
+            for f in files:
+                src_file = os.path.join(root, f)
+                dst_file = os.path.join(_OUTPUT_DIR, f)
+                shutil.copy2(src_file, dst_file)
+
+        # Optionally remove the restore code backup file so it cannot be reused
+        try:
+            os.remove(backup_path)
+        except Exception:
+            pass
+
+        log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Backup restored: {backup_name}", suspicious=False)
+        print(f"Backup '{backup_name}' succesfully restored.")
         return True
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT username FROM users")
-    all_users = cursor.fetchall()
-    current_username = current_user["username"]
-    found = False
-    for (encrypted_username,) in all_users:
-        if decrypt_data(encrypted_username) == current_username:
-            found = True
-            break
-    if found:
-        print(f"Username '{current_username}' exists in the backup.")
-        log_activity(current_username, f"Restored backup '{backup}' contains current user", suspicious=False)
-    else:
-        print(f"Username '{current_username}' does NOT exist in the backup.")
-        log_activity(current_username, f"Restored backup '{backup}' does not contain current user", suspicious=True)
-    log_activity(current_username, f"Validating current user in restored backup '{backup}': {found}", suspicious=not found)
-    conn.close()
-    return found
+    finally:
+        # Clean up temporary extraction directory
+        try:
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception:
+            pass
+
+def valid_curr_sys(current_user, backup, db_path: str = None) -> bool:
+    """
+    Checks if the current username exists in the provided database path (if given)
+    or in the live DATABASE_NAME if db_path is None. Returns True if found.
+    Super admins are always allowed.
+    """
+    current_username = current_user["username"] if isinstance(current_user, dict) else str(current_user)
+
+    if isinstance(current_user, dict) and current_user.get("role") == "super_admin":
+        print("Super admin detected: skipping user existence check in backup.")
+        log_activity(current_username, f"Super admin restored backup '{backup}' (no user check)", suspicious=False)
+        return True
+
+    # Choose which DB to inspect
+    conn = None
+    try:
+        if db_path:
+            conn = sqlite3.connect(db_path)
+        else:
+            conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT username FROM users")
+        all_users = cursor.fetchall()
+        found = False
+        for (encrypted_username,) in all_users:
+            try:
+                if decrypt_data(encrypted_username) == current_username:
+                    found = True
+                    break
+            except Exception:
+                # Skip entries that cannot be decrypted
+                continue
+
+        if found:
+            print(f"Username '{current_username}' exists in the database.")
+            log_activity(current_username, f"Restored backup '{backup}' contains current user", suspicious=False)
+        else:
+            print(f"Username '{current_username}' does NOT exist in the database.")
+            log_activity(current_username, f"Restored backup '{backup}' does not contain current user", suspicious=True)
+
+        log_activity(current_username, f"Validating current user in restored backup '{backup}': {found}", suspicious=not found)
+        return found
+    finally:
+        if conn:
+            conn.close()
 
 def generate_restore_code_db(target_system_admin, backup_name, current_user):
     code = str(uuid.uuid4())
