@@ -42,8 +42,9 @@ def list_users(): #WERKT VOLLEDIG
             first_name = decrypt_data(user[2]) if user[2] else "N/A"
             last_name = decrypt_data(user[3]) if user[3] else "N/A"
             role = decrypt_data(user[5]) if user[5] else "N/A"
+            date = decrypt_data(user[6]) if user[6] else "N/A"
             
-            print(f"ID: {user[0]}  |  Username: {username}  |  First Name: {first_name}  |  Last Name: {last_name}  |  Password: [Hidden]  |  Role: {role}  |  Registration Date: {user[6]}")
+            print(f"ID: {user[0]}  |  Username: {username}  |  First Name: {first_name}  |  Last Name: {last_name}  |  Password: [Hidden]  |  Role: {role}  |  Registration Date: {date}")
         except Exception as e:
             print(f"ID: {user[0]}  |  Error decrypting user data: {str(e)}")
     conn.close()
@@ -61,7 +62,7 @@ def add_system_admin(current_user): # WERKT VOLLEDIG
     cursor.execute("SELECT id, username FROM users")
     all_users = cursor.fetchall()
     username_exists = False
-    for other_id, other_encrypted_username in all_users:
+    for other_encrypted_username in all_users:
         if decrypt_data(other_encrypted_username) == username:
             username_exists = True
             break
@@ -95,10 +96,11 @@ def add_system_admin(current_user): # WERKT VOLLEDIG
     encrypted_lname = encrypt_data(last_name)
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     encrypted_role = encrypt_data("system_admin")
+    encrypted_date = encrypt_data(datetime.now().isoformat())
 
     try:
         cursor.execute("INSERT INTO users (username, first_name, last_name, password, role, registration_date) VALUES (?, ?, ?, ?, ?, ?)",
-                       (encrypted_username, encrypted_fname, encrypted_lname, hashed_password, encrypted_role, datetime.now().isoformat()))
+                       (encrypted_username, encrypted_fname, encrypted_lname, hashed_password, encrypted_role, encrypted_date))
         conn.commit()
         
         if cursor.rowcount > 0:

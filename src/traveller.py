@@ -86,7 +86,7 @@ def add_traveller(current_user=None):
     if not license_number:
         return
     cursor = conn.cursor()
-    registration_date = datetime.now()
+    encrypted_date = encrypt_data(datetime.now().isoformat())
     encrypted_first_name = encrypt_data(first_name)
     encrypted_last_name = encrypt_data(last_name)
     encrypted_birth_date = encrypt_data(birth_date)
@@ -106,7 +106,7 @@ def add_traveller(current_user=None):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (encrypted_first_name, encrypted_last_name, encrypted_birth_date, encrypted_gender,
               encrypted_street_name, encrypted_house_number, encrypted_zip_code, encrypted_city,
-              encrypted_email, encrypted_mobile_phone, encrypted_license_number, registration_date))
+              encrypted_email, encrypted_mobile_phone, encrypted_license_number, encrypted_date))
         conn.commit()
         print("Traveller added.")
         log_activity(username, "add_traveller", "Traveller added successfully")

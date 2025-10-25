@@ -5,13 +5,6 @@ import secrets
 import bcrypt
 import uuid
 from datetime import datetime
-from validation import (
-    validate_password, validate_zip, validate_phone, validate_fname, validate_lname, validate_house_number,
-    validate_email, validate_username, validate_street_name, validate_license_number, validate_city,
-    validate_birth_date, validate_gender, validate_brand, validate_model, validate_serial_number,
-    validate_target_range, validate_top_speed, validate_battery_capacity, validate_SoC, validate_location,
-    validate_OoS, validate_mileage, validate_last_maint
-)
 from encryption import encrypt_data, decrypt_data
 from logger import log_activity, print_logs
 from database import get_user_by_username
@@ -53,20 +46,52 @@ def restore_backup_by_name(current_user, backup_name):
         print("Backup not found!")
         log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
         return False
-    # Verwijder bestaande .db bestanden
     for file in os.listdir(_OUTPUT_DIR):
         if file.endswith('.db'):
             os.remove(os.path.join(_OUTPUT_DIR, file))
     shutil.unpack_archive(backup_path, _OUTPUT_DIR, 'zip')
     if os.path.exists(backup_path):
-        os.remove(backup_path)
-        log_activity(current_user, f"Backup restored: {backup_name}", suspicious=False)
-        print(f"Backup '{backup_name}' succesfully restored.")
-        return True
+        if (valid_curr_sys(current_user, backup_name) == True):
+            os.remove(backup_path)
+            log_activity(current_user, f"Backup restored: {backup_name}", suspicious=False)
+            print(f"Backup '{backup_name}' succesfully restored.")
+            return True
+        return False
     else:
         log_activity(current_user, f"Backup FAILED: {backup_name}", suspicious=True)
         print(f"Backup FAILED: {backup_name}")
         return False
+
+def valid_curr_sys(current_user, backup):
+    """
+    Checks if the current username exists in the restored backup database.
+    Returns True if found, False otherwise.
+    Super admins are always allowed.
+    """
+    if current_user.get("role") == "super_admin":
+        print("Super admin detected: skipping user existence check in backup.")
+        log_activity(current_user["username"], f"Super admin restored backup '{backup}' (no user check)", suspicious=False)
+        return True
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM users")
+    all_users = cursor.fetchall()
+    current_username = current_user["username"]
+    found = False
+    for (encrypted_username,) in all_users:
+        if decrypt_data(encrypted_username) == current_username:
+            found = True
+            break
+    if found:
+        print(f"Username '{current_username}' exists in the backup.")
+        log_activity(current_username, f"Restored backup '{backup}' contains current user", suspicious=False)
+    else:
+        print(f"Username '{current_username}' does NOT exist in the backup.")
+        log_activity(current_username, f"Restored backup '{backup}' does not contain current user", suspicious=True)
+    log_activity(current_username, f"Validating current user in restored backup '{backup}': {found}", suspicious=not found)
+    conn.close()
+    return found
 
 def generate_restore_code_db(target_system_admin, backup_name, current_user):
     code = str(uuid.uuid4())
@@ -98,10 +123,9 @@ def use_restore_code_db(current_username, code, current_user):
                 found = True
                 backup_name = backup
                 f.write(f"{code}|{sysadmin}|{backup}|used\n")
+                log_activity(current_username, f"Restore code used: {code}", suspicious=False)
             else:
                 f.write(line)
-    print(current_username)
-    print(sysadmin)
     return found, backup_name
 
 def revoke_restore_code_db(code, current_user):

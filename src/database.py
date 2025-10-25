@@ -45,9 +45,9 @@ def initialize_db():
             last_name TEXT,                -- Encrypt
             password TEXT NOT NULL,        -- Hashed
             role TEXT,                     -- Encrypted
-            registration_date DATETIME  
+            registration_date DATETIME    -- Encrypt 
         )  
-    """)  
+    """)
 
     cursor.execute("""  
         CREATE TABLE IF NOT EXISTS travellers ( 
@@ -63,7 +63,7 @@ def initialize_db():
             email TEXT UNIQUE,        -- Encrypt
             mobile_phone TEXT,        -- Encrypt
             license_number TEXT,      -- Encrypt
-            registration_date DATETIME  
+            registration_date DATETIME -- Encrypt
         )  
     """)  
 
