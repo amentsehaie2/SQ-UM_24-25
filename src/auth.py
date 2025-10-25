@@ -55,24 +55,21 @@ def get_all_users_from_db():
     return users
 
 def login():
-    username_input = input("Username: ")
-    password_input = input("Password: ")
-    if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
-        log_activity(username_input, "Super Admin login", False)
-        print("Super Admin logged in successfully.")
-        user = {"id": 0, "username": username_input, "role": "super_admin"}
-        show_suspicious_alert()
-        return user
     MAX_STRIKES = 4
     strike_count = 0
     while strike_count < MAX_STRIKES:
+        username_input = input("Username: ")
+        # Allow hardcoded super admin username to pass validation
+        if username_input == SUPER_ADMIN["username"]:
+            break
         if not isinstance(username_input, str) or username_input == "":
             print("Username must be a non-empty string.")
+            log_activity("unknown user", "Invalid username input", suspicious=True)
             strike_count += 1
             continue
         if not validate_username(username_input):
             print("Invalid username format.")
-            log_activity(username_input, "Invalid username format", suspicious=True)
+            log_activity("unknown user", "Invalid username format", suspicious=True)
             strike_count += 1
             continue
         break
@@ -83,15 +80,28 @@ def login():
 
     strike_count = 0
     while strike_count < MAX_STRIKES:
-        
+        password_input = input("Password: ")
+        if password_input == SUPER_ADMIN["password"]:
+            break
         if not isinstance(password_input, str) or password_input == "":
             print("Password must be a non-empty string.")
             strike_count += 1
-        else:
-            break
+            continue
+        if not validate_password(password_input):
+            print("Invalid password format.")
+            strike_count += 1
+            continue
+        break
     else:
         print("Too many invalid attempts for password. Please try again later.")
         return None
+    
+    if (username_input == SUPER_ADMIN["username"] and password_input == SUPER_ADMIN["password"]):
+        log_activity(username_input, "Super Admin login", False)
+        print("Super Admin logged in successfully.")
+        user = {"id": 0, "username": username_input, "role": "super_admin"}
+        show_suspicious_alert()
+        return user
 
     user_db = get_user_by_username(username_input)
     if user_db:
