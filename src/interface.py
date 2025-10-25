@@ -384,7 +384,6 @@ def system_administration_menu(current_user):
                     if not ok:
                         print("Restore-code invalid or not for this user!")
                         log_activity(current_user["username"], "Restore backup failed", "invalid restore-code", suspicious=True)
-                        strike_count += 1
                     else:
                         restore_backup_by_name(current_user, backup_name)
                         log_activity(current_user["username"], "Restore backup OK", f"backup={backup_name}")
