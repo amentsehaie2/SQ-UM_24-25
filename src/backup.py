@@ -40,73 +40,77 @@ def make_backup(current_user):
         return None
 
 def restore_backup_by_name(current_user, backup_name):
-    """Restore zip-backup, only system admins can do this, through a code."""
-    backup_path = os.path.join(BACKUP_DIR, backup_name)
-    if not os.path.exists(backup_path):
-        print("Backup not found!")
-        log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Backup FAILED: {backup_name}", suspicious=True)
-        return False
-
-    # Unpack into a temporary directory first, validate, then swap in if OK
-    temp_dir = os.path.join(BACKUP_DIR, f"tmp_restore_{uuid.uuid4().hex}")
     try:
-        os.makedirs(temp_dir, exist_ok=True)
-        shutil.unpack_archive(backup_path, temp_dir, 'zip')
+        backup_path = os.path.join(BACKUP_DIR, backup_name)
+        if not os.path.exists(backup_path):
+            print(f"Backup file '{backup_name}' does not exist.")
+            log_activity(current_user["username"], "Restore backup failed", f"File not found: {backup_name}", suspicious=True)
+            return False
 
-        # Locate .db inside the unpacked archive
-        restored_db = None
-        for root, _, files in os.walk(temp_dir):
-            for f in files:
-                if f.endswith('.db'):
-                    restored_db = os.path.join(root, f)
+        # Unpack into a temporary directory first, validate, then swap in if OK
+        temp_dir = os.path.join(BACKUP_DIR, f"tmp_restore_{uuid.uuid4().hex}")
+        try:
+            os.makedirs(temp_dir, exist_ok=True)
+            shutil.unpack_archive(backup_path, temp_dir, 'zip')
+
+            # Locate .db inside the unpacked archive
+            restored_db = None
+            for root, _, files in os.walk(temp_dir):
+                for f in files:
+                    if f.endswith('.db'):
+                        restored_db = os.path.join(root, f)
+                        break
+                if restored_db:
                     break
-            if restored_db:
-                break
 
-        if not restored_db:
-            print("No database file found inside the backup archive.")
-            log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Restore aborted: no DB in {backup_name}", suspicious=True)
-            return False
+            if not restored_db:
+                print("No database file found inside the backup archive.")
+                log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Restore aborted: no DB in {backup_name}", suspicious=True)
+                return False
 
-        # Validate the current user exists in the restored DB (or allow super_admin)
-        if not valid_curr_sys(current_user, backup_name, db_path=restored_db):
-            print("Restored backup does not contain the current user. Restore aborted.")
-            log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Restore aborted: user not in {backup_name}", suspicious=True)
-            return False
+            # Validate the current user exists in the restored DB (or allow super_admin)
+            if not valid_curr_sys(current_user, backup_name, db_path=restored_db):
+                print("Restored backup does not contain the current user. Restore aborted.")
+                log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Restore aborted: user not in {backup_name}", suspicious=True)
+                return False
 
-        # At this point validation succeeded. Replace current DB files with the restored ones.
-        # Back up current DB files first
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_current = os.path.join(BACKUP_DIR, f"pre_restore_backup_{timestamp}")
-        os.makedirs(backup_current, exist_ok=True)
-        for file in os.listdir(_OUTPUT_DIR):
-            if file.endswith('.db'):
-                shutil.move(os.path.join(_OUTPUT_DIR, file), os.path.join(backup_current, file))
+            # At this point validation succeeded. Replace current DB files with the restored ones.
+            # Back up current DB files first
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_current = os.path.join(BACKUP_DIR, f"pre_restore_backup_{timestamp}")
+            os.makedirs(backup_current, exist_ok=True)
+            for file in os.listdir(_OUTPUT_DIR):
+                if file.endswith('.db'):
+                    shutil.move(os.path.join(_OUTPUT_DIR, file), os.path.join(backup_current, file))
 
-        # Copy restored files into _OUTPUT_DIR
-        for root, _, files in os.walk(temp_dir):
-            for f in files:
-                src_file = os.path.join(root, f)
-                dst_file = os.path.join(_OUTPUT_DIR, f)
-                shutil.copy2(src_file, dst_file)
+            # Copy restored files into _OUTPUT_DIR
+            for root, _, files in os.walk(temp_dir):
+                for f in files:
+                    src_file = os.path.join(root, f)
+                    dst_file = os.path.join(_OUTPUT_DIR, f)
+                    shutil.copy2(src_file, dst_file)
 
-        # Optionally remove the restore code backup file so it cannot be reused
-        try:
-            os.remove(backup_path)
-        except Exception:
-            pass
+            # Optionally remove the restore code backup file so it cannot be reused
+            try:
+                os.remove(backup_path)
+            except Exception:
+                pass
 
-        log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Backup restored: {backup_name}", suspicious=False)
-        print(f"Backup '{backup_name}' succesfully restored.")
-        return True
+            log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Backup restored: {backup_name}", suspicious=False)
+            print(f"Backup '{backup_name}' restored successfully.")
+            return True
 
-    finally:
-        # Clean up temporary extraction directory
-        try:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-        except Exception:
-            pass
+        finally:
+            # Clean up temporary extraction directory
+            try:
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"Error restoring backup: {e}")
+        log_activity(current_user["username"], "Restore backup failed", str(e), suspicious=True)
+        return False
 
 def valid_curr_sys(current_user, backup, db_path: str = None) -> bool:
     """
