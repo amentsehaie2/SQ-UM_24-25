@@ -32,7 +32,6 @@ def make_backup(current_user):
     shutil.make_archive(backup_path.replace(".zip", ""), 'zip', _OUTPUT_DIR)
     if os.path.exists(backup_path):
         log_activity(current_user["username"], f"Backup created: {backup_name}", suspicious=False)
-        print(f"Backup created: {backup_name}")
         return backup_name
     else:
         log_activity(current_user["username"], f"Backup FAILED: {backup_name}", suspicious=True)
@@ -161,8 +160,13 @@ def valid_curr_sys(current_user, backup, db_path: str = None) -> bool:
 def generate_restore_code_db(target_system_admin, backup_name, current_user):
     code = str(uuid.uuid4())
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
+    # encrypt each field before writing (including the flag)
+    encrypted_code = encrypt_data(code)
+    encrypted_admin = encrypt_data(target_system_admin)
+    encrypted_backup = encrypt_data(backup_name)
+    encrypted_flag = encrypt_data("unused")
     with open(RESTORE_CODE_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{code}|{target_system_admin}|{backup_name}|unused\n")
+        f.write(f"{encrypted_code}|{encrypted_admin}|{encrypted_backup}|{encrypted_flag}\n")
     log_activity("super_admin", f"Restore-code generated for {target_system_admin} backup: {backup_name}", suspicious=False)
     print(f"Restore-code for {target_system_admin}: {code}")
     return code
@@ -171,6 +175,7 @@ def use_restore_code_db(current_username, code, current_user):
     """
     Validates a restore code, links it to the correct System Admin & backup,
     marks the code as used. Returns (True, backup_name) on success, otherwise (False, None).
+    This function tolerates older/plaintext lines and will rewrite them encrypted.
     """
     lines = []
     found = False
@@ -183,47 +188,137 @@ def use_restore_code_db(current_username, code, current_user):
         lines = f.readlines()
     with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
         for line in lines:
-            code_line, sysadmin, backup, used = line.strip().split("|")
-            if code_line == code and sysadmin == decrypt_data(current_username) and used == "unused":
-                found = True
-                backup_name = backup
-                f.write(f"{code}|{sysadmin}|{backup}|used\n")
-                log_activity(current_username, f"Restore code used: {code}", suspicious=False)
-            else:
+            try:
+                raw_code, raw_sysadmin, raw_backup, raw_flag = line.strip().split("|")
+            except ValueError:
+                # malformed line: keep as-is
+                f.write(line)
+                continue
+
+            # Try to get plaintext values; if decryption fails assume the raw value is plaintext
+            try:
+                dec_code = decrypt_data(raw_code)
+                enc_code = raw_code
+            except Exception:
+                dec_code = raw_code
+                enc_code = encrypt_data(dec_code)
+
+            try:
+                dec_sysadmin = decrypt_data(raw_sysadmin)
+                enc_sysadmin = raw_sysadmin
+            except Exception:
+                dec_sysadmin = raw_sysadmin
+                enc_sysadmin = encrypt_data(dec_sysadmin)
+
+            try:
+                dec_backup = decrypt_data(raw_backup)
+                enc_backup = raw_backup
+            except Exception:
+                dec_backup = raw_backup
+                enc_backup = encrypt_data(dec_backup)
+
+            try:
+                dec_flag = decrypt_data(raw_flag)
+                enc_flag = raw_flag
+            except Exception:
+                dec_flag = raw_flag
+                enc_flag = encrypt_data(dec_flag)
+
+            # current_username is expected encrypted in callers; keep existing behavior
+            try:
+                current_username_plain = decrypt_data(current_username)
+            except Exception:
+                current_username_plain = current_username
+
+            try:
+                if dec_code == code and dec_sysadmin == current_username_plain and dec_flag == "unused":
+                    found = True
+                    backup_name = dec_backup
+                    # write same encrypted fields but mark used (encrypted)
+                    f.write(f"{enc_code}|{enc_sysadmin}|{enc_backup}|{encrypt_data('used')}\n")
+                    log_activity(current_username, f"Restore code used: {code}", suspicious=False)
+                else:
+                    # ensure we write the encrypted form (convert plaintext flags/fields)
+                    f.write(f"{enc_code}|{enc_sysadmin}|{enc_backup}|{enc_flag}\n")
+            except Exception:
+                # on any error, keep the original line
                 f.write(line)
     return found, backup_name
 
 def revoke_restore_code_db(code, current_user):
+    """
+    Marks an existing encrypted restore-code as revoked.
+    The restore_code.txt file stores only encrypted fields; this function
+    tolerates plaintext legacy lines and rewrites them encrypted.
+    """
     if not os.path.exists(RESTORE_CODE_FILE):
         print("Restore codes file not found!")
         log_activity("super_admin", "revoke_restore_code_db", "Restore codes file not found", suspicious=True)
         return
-    lines = []
-    with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
-        for line in lines:
-            code_line, sysadmin, backup, used = line.strip().split("|")
-            if code_line == code and used == "unused":
-                f.write(f"{code}|{sysadmin}|{backup}|revoked\n")
-            else:
-                f.write(line)
-    print(f"Restore code '{code}' has been revoked.")
-    log_activity("super_admin", f"Restore code revoked: {code}", suspicious=False)
 
-    if not os.path.exists(RESTORE_CODE_FILE):
-        print("Restore-codes-bestand niet gevonden!")
-        log_activity("super_admin", "revoke_restore_code_db", "Restore-codes-file not found", suspicious=True)
+    try:
+        with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except Exception as e:
+        print(f"Could not read restore codes file: {e}")
+        log_activity("super_admin", "revoke_restore_code_db", f"Read error: {e}", suspicious=True)
         return
-    lines = []
-    with open(RESTORE_CODE_FILE, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
-        for line in lines:
-            code_line, sysadmin, backup, used = line.strip().split("|")
-            if code_line == code and used == "unused":
-                f.write(f"{code}|{sysadmin}|{backup}|revoked\n")
-            else:
-                f.write(line)
-    print(f"Restore-code '{code}' revoked.")
-    log_activity("super_admin", f"Restore-code revoked: {code}", suspicious=False)
+
+    try:
+        with open(RESTORE_CODE_FILE, "w", encoding="utf-8") as f:
+            for line in lines:
+                line = line.rstrip("\n")
+                if not line:
+                    continue
+                parts = line.split("|")
+                if len(parts) != 4:
+                    # malformed line: keep as-is
+                    f.write(line + "\n")
+                    continue
+
+                raw_code, raw_sysadmin, raw_backup, raw_flag = parts
+
+                try:
+                    dec_code = decrypt_data(raw_code)
+                    enc_code = raw_code
+                except Exception:
+                    dec_code = raw_code
+                    enc_code = encrypt_data(dec_code)
+
+                try:
+                    dec_flag = decrypt_data(raw_flag)
+                    enc_flag = raw_flag
+                except Exception:
+                    dec_flag = raw_flag
+                    enc_flag = encrypt_data(dec_flag)
+
+                # Match the provided plaintext code; only change the flag if unused
+                if dec_code == code and dec_flag == "unused":
+                    f.write(f"{enc_code}|{raw_sysadmin if raw_sysadmin.startswith('gAAAA') else encrypt_data(raw_sysadmin)}|{raw_backup if raw_backup.startswith('gAAAA') else encrypt_data(raw_backup)}|{encrypt_data('revoked')}\n")
+                else:
+                    # ensure we write encrypted flag/fields for consistency
+                    try:
+                        # normalize sysadmin/backup to encrypted versions if they were plaintext
+                        try:
+                            # if already decryptable, keep raw; else encrypt plaintext
+                            _ = decrypt_data(raw_sysadmin)
+                            enc_sysadmin = raw_sysadmin
+                        except Exception:
+                            enc_sysadmin = encrypt_data(raw_sysadmin)
+
+                        try:
+                            _ = decrypt_data(raw_backup)
+                            enc_backup = raw_backup
+                        except Exception:
+                            enc_backup = encrypt_data(raw_backup)
+                    except Exception:
+                        enc_sysadmin = raw_sysadmin
+                        enc_backup = raw_backup
+
+                    f.write(f"{enc_code}|{enc_sysadmin}|{enc_backup}|{enc_flag}\n")
+
+        print(f"Restore code '{code}' has been revoked.")
+        log_activity("super_admin", f"Restore code revoked: {code}", suspicious=False)
+    except Exception as e:
+        print(f"Error updating restore codes file: {e}")
+        log_activity("super_admin", "revoke_restore_code_db", f"Write error: {e}", suspicious=True)
