@@ -54,7 +54,7 @@ def add_scooter(current_user):
             print(f"Format: {format_hint}")
         while strikes < 3:
             value = input(prompt_text)
-            if value.strip() == "":
+            if value == "":
                 print(f"{log_field.replace('_', ' ').capitalize()} cannot be empty. Please try again.")
                 log_activity(username, "add_scooter", f"Empty {log_field}", suspicious=True)
                 strikes += 1
@@ -66,8 +66,10 @@ def add_scooter(current_user):
                     value_cast = value
                 if validate_func(value_cast):
                     return value_cast
-            except Exception as e:
-                print(f"Validation error: {e}")
+            except Exception:
+                # Avoid printing internal error details to the user; log only a generic message.
+                print("Invalid input. Please try again.")
+                log_activity(username, "add_scooter", f"Validation error for {log_field}", suspicious=True)
             print(f"Invalid {log_field.replace('_', ' ')}. Please try again.")
             log_activity(username, "add_scooter", f"Invalid {log_field}", suspicious=True)
             strikes += 1
@@ -134,7 +136,7 @@ def add_scooter(current_user):
         return
 
 def search_scooters(current_user):
-    key = input("Enter search key for scooters: ").strip().lower()
+    key = input("Enter search key for scooters: ")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -228,7 +230,7 @@ def update_scooter(current_user):
         values = []
 
         for field, (validator, should_encrypt) in allowed_fields.items():
-            value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+            value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ")
             if value:
                 # Convert to correct type for numeric fields
                 if field in {"top_speed", "battery_capacity", "state_of_charge", "target_range", "mileage"}:
