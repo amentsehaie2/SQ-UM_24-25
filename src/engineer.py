@@ -455,7 +455,7 @@ def reset_service_engineer_password(current_user): # WERKT VOLLEDIG
         conn.close()
 
 def update_scooter_by_engineer(current_user):
-    scooter_id = input("Enter the Scooter ID to update: ").strip()
+    scooter_id = input("Enter the Scooter ID to update: ")
     if not scooter_id.isdigit():
         print("Invalid Scooter ID format.")
         log_activity(current_user["username"], "Failed to update scooter by engineer - invalid ID format", suspicious=True)
@@ -481,7 +481,7 @@ def update_scooter_by_engineer(current_user):
     values = []
 
     for field, (validator, should_encrypt) in allowed_fields.items():
-        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+        value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ")
         if value:
             if field in {"state_of_charge", "mileage"}:
                 try:
