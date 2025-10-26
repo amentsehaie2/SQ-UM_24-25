@@ -16,7 +16,6 @@ from encryption import encrypt_data, decrypt_data
 from logger import log_activity, print_logs
 from database import get_user_by_username
 
-# Use the same DB path logic as database.py
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
 _OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
@@ -114,7 +113,7 @@ def add_system_admin(current_user): # WERKT VOLLEDIG
         print(f"Failed to add system admin due to database constraint: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to add system admin - unexpected error: {username}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -207,7 +206,7 @@ def update_system_admin_username(current_user):
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update system admin username - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -272,7 +271,7 @@ def update_system_admin_password(current_user):
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update system admin password - unexpected error for user '{user_id}'", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -331,7 +330,7 @@ def delete_system_admin(current_user):
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to delete system admin - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -380,22 +379,6 @@ def delete_own_system_admin(current_user):
             return False
         
         elif confirmation == "yes":
-
-            # # Require password confirmation for security
-            # current_password_input = input("Enter your current password to confirm deletion: ")
-            # if not validate_password(current_password_input):
-            #     log_activity(current_user["username"], f"Failed to delete own system admin account - invalid password format", suspicious=True)
-            #     print("Invalid password format.")
-            #     conn.close()
-            #     return False
-
-            # if not bcrypt.checkpw(current_password_input.encode('utf-8'), current_password_hash):
-            #     log_activity(current_user["username"], f"Failed to delete own system admin account - incorrect password for ID {user_id}", suspicious=True)
-            #     print("Incorrect password. Account deletion cancelled.")
-            #     conn.close()
-            #     return False
-
-            # Final confirmation
             final_confirmation = input("Final confirmation - type 'yes' to permanently delete your account: ")
             if final_confirmation != "yes":
                 log_activity(current_user["username"], f"Own system admin account deletion cancelled at final confirmation for user {current_username} (ID: {user_id})")
@@ -404,7 +387,6 @@ def delete_own_system_admin(current_user):
                 return False
             
             if final_confirmation == "yes":
-                # Perform the deletion
                 cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
                 conn.commit()
                 
@@ -426,7 +408,7 @@ def delete_own_system_admin(current_user):
         return False
     except Exception as e:
         log_activity(current_user["username"], f"Failed to delete own system admin account - unexpected error for username '{username}'", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
         return False
     finally:
         conn.close()
@@ -486,7 +468,7 @@ def update_fname_system_admin(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update system admin first name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -545,7 +527,7 @@ def update_lname_system_admin(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update system admin last name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -605,7 +587,7 @@ def delete_system_admin(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to delete system admin - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -670,7 +652,7 @@ def reset_system_admin_password(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to reset system admin password - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -684,7 +666,6 @@ def update_own_system_admin_profile(current_user):
     cursor = conn.cursor()
     user_id = current_user['id']
 
-    # --- Update username ---
     strike_count = 0
     while strike_count < 4:
         new_username = input("New username (leave empty to skip): ")
@@ -694,7 +675,6 @@ def update_own_system_admin_profile(current_user):
             print("Invalid username format.")
             strike_count += 1
             continue
-        # Check uniqueness
         cursor.execute("SELECT id, username FROM users WHERE id != ?", (user_id,))
         usernames = [decrypt_data(row[1]) for row in cursor.fetchall()]
         if new_username in usernames:
@@ -702,7 +682,7 @@ def update_own_system_admin_profile(current_user):
             strike_count += 1
             continue
         cursor.execute("UPDATE users SET username = ? WHERE id = ?", (encrypt_data(new_username), user_id))
-        current_user["username"] = new_username  # Update session
+        current_user["username"] = new_username
         print("Username updated.")
         break
     if strike_count >= 4:
@@ -710,7 +690,6 @@ def update_own_system_admin_profile(current_user):
         conn.close()
         return
 
-    # --- Update first name ---
     strike_count = 0
     while strike_count < 4:
         new_fname = input("New first name (leave empty to skip): ")
@@ -728,7 +707,6 @@ def update_own_system_admin_profile(current_user):
         conn.close()
         return
 
-    # --- Update last name ---
     strike_count = 0
     while strike_count < 4:
         new_lname = input("New last name (leave empty to skip): ")
@@ -746,7 +724,6 @@ def update_own_system_admin_profile(current_user):
         conn.close()
         return
 
-    # --- Update password ---
     strike_count = 0
     while strike_count < 4:
         old_password = input("Current password (leave empty to skip): ")
@@ -758,7 +735,6 @@ def update_own_system_admin_profile(current_user):
             print("Current password is incorrect.")
             strike_count += 1
             continue
-        # Ask for new password
         pw_strike = 0
         while pw_strike < 4:
             new_password = input("New password: ")
@@ -825,7 +801,7 @@ def delete_own_system_admin_account(current_user):
             conn.commit()
             print("Your account has been deleted. You will now be logged out.")
             conn.close()
-            return True  # ACCOUNT DELETED!
+            return True
         else:
             print("Deletion not confirmed. Type 'yes' to proceed.")
             strike_count += 1
@@ -898,7 +874,7 @@ def delete_service_engineer(current_user):
         return False
     except Exception as e:
         log_activity(current_user["username"], f"Failed to delete service engineer - unexpected error for ID {service_engineer_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
         conn.close()
         return False
     

@@ -10,7 +10,6 @@ from logger import log_activity
 # --- INITIALIZE KEYS EARLY (BELANGRIJK!) ---
 _initialize_keys()
 
-# --- Conditional import for direct execution vs. package import ---
 if __package__ is None or __package__ == '':
     _src_dir_for_import = os.path.dirname(os.path.abspath(__file__)) 
     _project_root_for_import = os.path.dirname(_src_dir_for_import) 
@@ -19,7 +18,6 @@ if __package__ is None or __package__ == '':
     from src.encryption import encrypt_data, decrypt_data 
 else:
     from .encryption import encrypt_data, decrypt_data
-# --- End conditional import ---
 
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
@@ -36,7 +34,6 @@ def initialize_db():
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     conn = get_db_connection()
     cursor = conn.cursor()  
-    # Create users table  
     cursor.execute("""  
         CREATE TABLE IF NOT EXISTS users (  
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -148,7 +145,6 @@ def update_user_password(username, new_password):
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    # search by decrypted username!
     cursor.execute("SELECT id, username FROM users")
     rows = cursor.fetchall()
     user_id = None

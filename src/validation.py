@@ -188,9 +188,7 @@ def validate_location(location) -> bool:
     Validates if the location is a string in the format 'latitude,longitude' with exactly 5 decimal places.
     Example: '51.92250,4.47917'
     """
-    if  isinstance(location, str):
-        return True
-    if re.fullmatch(r'^-?\d{1,2}\.\d{5},-?\d{1,3}\.\d{5}$', location):
+    if  isinstance(location, str) and re.fullmatch(r'^\-?\d{1,2}\.\d{5},\s*\-?\d{1,3}\.\d{5}$', location):
         return True
     return False
 

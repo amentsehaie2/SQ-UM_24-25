@@ -9,7 +9,6 @@ from encryption import encrypt_data, decrypt_data
 from logger import log_activity, print_logs
 from database import get_user_by_username
 
-# Use the same DB path logic as database.py
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
 _OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
@@ -46,13 +45,11 @@ def restore_backup_by_name(current_user, backup_name):
             log_activity(current_user["username"], "Restore backup failed", f"File not found: {backup_name}", suspicious=True)
             return False
 
-        # Unpack into a temporary directory first, validate, then swap in if OK
         temp_dir = os.path.join(BACKUP_DIR, f"tmp_restore_{uuid.uuid4().hex}")
         try:
             os.makedirs(temp_dir, exist_ok=True)
             shutil.unpack_archive(backup_path, temp_dir, 'zip')
 
-            # Locate .db inside the unpacked archive
             restored_db = None
             for root, _, files in os.walk(temp_dir):
                 for f in files:
@@ -67,14 +64,11 @@ def restore_backup_by_name(current_user, backup_name):
                 log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Restore aborted: no DB in {backup_name}", suspicious=True)
                 return False
 
-            # Validate the current user exists in the restored DB (or allow super_admin)
             if not valid_curr_sys(current_user, backup_name, db_path=restored_db):
                 print("Restored backup does not contain the current user. Restore aborted.")
                 log_activity(current_user.get("username") if isinstance(current_user, dict) else str(current_user), f"Restore aborted: user not in {backup_name}", suspicious=True)
                 return False
 
-            # At this point validation succeeded. Replace current DB files with the restored ones.
-            # Back up current DB files first
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             backup_current = os.path.join(BACKUP_DIR, f"pre_restore_backup_{timestamp}")
             os.makedirs(backup_current, exist_ok=True)
@@ -82,14 +76,12 @@ def restore_backup_by_name(current_user, backup_name):
                 if file.endswith('.db'):
                     shutil.move(os.path.join(_OUTPUT_DIR, file), os.path.join(backup_current, file))
 
-            # Copy restored files into _OUTPUT_DIR
             for root, _, files in os.walk(temp_dir):
                 for f in files:
                     src_file = os.path.join(root, f)
                     dst_file = os.path.join(_OUTPUT_DIR, f)
                     shutil.copy2(src_file, dst_file)
 
-            # Optionally remove the restore code backup file so it cannot be reused
             try:
                 os.remove(backup_path)
             except Exception:
@@ -100,7 +92,6 @@ def restore_backup_by_name(current_user, backup_name):
             return True
 
         finally:
-            # Clean up temporary extraction directory
             try:
                 if os.path.exists(temp_dir):
                     shutil.rmtree(temp_dir)
@@ -124,7 +115,6 @@ def valid_curr_sys(current_user, backup, db_path: str = None) -> bool:
         log_activity(current_username, f"Super admin restored backup '{backup}' (no user check)", suspicious=False)
         return True
 
-    # Choose which DB to inspect
     conn = None
     try:
         if db_path:
@@ -141,7 +131,6 @@ def valid_curr_sys(current_user, backup, db_path: str = None) -> bool:
                     found = True
                     break
             except Exception:
-                # Skip entries that cannot be decrypted
                 continue
 
         if found:
@@ -160,7 +149,6 @@ def valid_curr_sys(current_user, backup, db_path: str = None) -> bool:
 def generate_restore_code_db(target_system_admin, backup_name, current_user):
     code = str(uuid.uuid4())
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
-    # encrypt each field before writing (including the flag)
     encrypted_code = encrypt_data(code)
     encrypted_admin = encrypt_data(target_system_admin)
     encrypted_backup = encrypt_data(backup_name)
@@ -191,11 +179,9 @@ def use_restore_code_db(current_username, code, current_user):
             try:
                 raw_code, raw_sysadmin, raw_backup, raw_flag = line.strip().split("|")
             except ValueError:
-                # malformed line: keep as-is
                 f.write(line)
                 continue
 
-            # Try to get plaintext values; if decryption fails assume the raw value is plaintext
             try:
                 dec_code = decrypt_data(raw_code)
                 enc_code = raw_code
@@ -224,7 +210,6 @@ def use_restore_code_db(current_username, code, current_user):
                 dec_flag = raw_flag
                 enc_flag = encrypt_data(dec_flag)
 
-            # current_username is expected encrypted in callers; keep existing behavior
             try:
                 current_username_plain = decrypt_data(current_username)
             except Exception:
@@ -234,14 +219,11 @@ def use_restore_code_db(current_username, code, current_user):
                 if dec_code == code and dec_sysadmin == current_username_plain and dec_flag == "unused":
                     found = True
                     backup_name = dec_backup
-                    # write same encrypted fields but mark used (encrypted)
                     f.write(f"{enc_code}|{enc_sysadmin}|{enc_backup}|{encrypt_data('used')}\n")
                     log_activity(current_username, f"Restore code used: {code}", suspicious=False)
                 else:
-                    # ensure we write the encrypted form (convert plaintext flags/fields)
                     f.write(f"{enc_code}|{enc_sysadmin}|{enc_backup}|{enc_flag}\n")
             except Exception:
-                # on any error, keep the original line
                 f.write(line)
     return found, backup_name
 
@@ -272,7 +254,6 @@ def revoke_restore_code_db(code, current_user):
                     continue
                 parts = line.split("|")
                 if len(parts) != 4:
-                    # malformed line: keep as-is
                     f.write(line + "\n")
                     continue
 
@@ -292,15 +273,11 @@ def revoke_restore_code_db(code, current_user):
                     dec_flag = raw_flag
                     enc_flag = encrypt_data(dec_flag)
 
-                # Match the provided plaintext code; only change the flag if unused
                 if dec_code == code and dec_flag == "unused":
                     f.write(f"{enc_code}|{raw_sysadmin if raw_sysadmin.startswith('gAAAA') else encrypt_data(raw_sysadmin)}|{raw_backup if raw_backup.startswith('gAAAA') else encrypt_data(raw_backup)}|{encrypt_data('revoked')}\n")
                 else:
-                    # ensure we write encrypted flag/fields for consistency
                     try:
-                        # normalize sysadmin/backup to encrypted versions if they were plaintext
                         try:
-                            # if already decryptable, keep raw; else encrypt plaintext
                             _ = decrypt_data(raw_sysadmin)
                             enc_sysadmin = raw_sysadmin
                         except Exception:

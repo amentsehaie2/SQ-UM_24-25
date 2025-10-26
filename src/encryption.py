@@ -9,7 +9,6 @@ _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
 _OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
 
-# --- Key file paths within the output directory ---
 _PRIVATE_KEY_FILE = os.path.join(_OUTPUT_DIR, ".private-key")
 _PUBLIC_KEY_FILE = os.path.join(_OUTPUT_DIR, ".public-key")
 _SYMMETRIC_KEY_FILE = os.path.join(_OUTPUT_DIR, ".key")
@@ -21,20 +20,18 @@ def _initialize_keys():
     """Ensure encryption keys exist, loading or generating them as needed."""
     global privateKey, publicKey, encryptor
 
-    if encryptor is not None: # Already initialized
+    if encryptor is not None:
         return
 
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
 
     try:
-        # Try loading the RSA keys
         if os.path.exists(_PRIVATE_KEY_FILE) and os.path.exists(_PUBLIC_KEY_FILE):
             with open(_PRIVATE_KEY_FILE, "rb") as f:
                 privateKey = serialization.load_pem_private_key(f.read(), password=None, backend=default_backend())
             with open(_PUBLIC_KEY_FILE, "rb") as f:
                 publicKey = serialization.load_pem_public_key(f.read(), backend=default_backend())
         else:
-            # Generate new RSA key pair
             privateKey = rsa.generate_private_key(
                 public_exponent=65537,
                 key_size=2048, 
@@ -101,9 +98,9 @@ def encrypt_data(data: str) -> str:
     if encryptor is None:
         _initialize_keys()
     if not isinstance(data, str):
-        data = str(data) # Ensure data is a string
+        data = str(data)
     encrypted_bytes = encryptor.encrypt(data.encode('utf-8'))
-    return encrypted_bytes.decode('utf-8') # Fernet output is base64, safe for UTF-8 decode
+    return encrypted_bytes.decode('utf-8') 
 
 def decrypt_data(encrypted_text_data: str) -> str:
     """Symmetrically decrypts a string."""

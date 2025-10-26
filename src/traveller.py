@@ -15,7 +15,6 @@ from validation import (
 from encryption import encrypt_data, decrypt_data
 from logger import log_activity, print_logs
 
-# Use the same DB path logic as database.py
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
 _OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
@@ -168,7 +167,7 @@ def search_travellers(current_user):
         return None
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update traveller - unexpected error", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
         return False
 
 def update_traveller(current_user):
@@ -247,7 +246,7 @@ def update_traveller(current_user):
         return False
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update traveller - unexpected error for ID {traveller_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
         return False
     finally:
         conn.close()

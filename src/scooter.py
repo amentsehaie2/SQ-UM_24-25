@@ -33,7 +33,6 @@ def add_scooter(current_user):
     print("Enter scooter details:")
     username = current_user["username"] if current_user and "username" in current_user else "unknown"
 
-    # Format descriptions for each field
     field_formats = {
         "brand": "Any string.",
         "model": "Non-empty string.",
@@ -67,7 +66,6 @@ def add_scooter(current_user):
                 if validate_func(value_cast):
                     return value_cast
             except Exception:
-                # Avoid printing internal error details to the user; log only a generic message.
                 print("Invalid input. Please try again.")
                 log_activity(username, "add_scooter", f"Validation error for {log_field}", suspicious=True)
             print(f"Invalid {log_field.replace('_', ' ')}. Please try again.")
@@ -158,7 +156,6 @@ def search_scooters(current_user):
         out_of_service = row[9]
         mileage = row[10]
         last_service_date = row[11]
-        # Search in decrypted/encrypted fields as appropriate
         if (
             key in decrypted_brand.lower()
             or key in decrypted_model.lower()
@@ -232,7 +229,6 @@ def update_scooter(current_user):
         for field, (validator, should_encrypt) in allowed_fields.items():
             value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ")
             if value:
-                # Convert to correct type for numeric fields
                 if field in {"top_speed", "battery_capacity", "state_of_charge", "target_range", "mileage"}:
                     try:
                         value = int(value)
@@ -276,7 +272,7 @@ def update_scooter(current_user):
         return False
     except Exception as e:
         log_activity(current_user["username"], "Failed to update scooter - unexpected error", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
         return False
 
 def delete_scooter(current_user):

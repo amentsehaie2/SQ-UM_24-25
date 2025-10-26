@@ -59,7 +59,6 @@ def login():
     strike_count = 0
     while strike_count < MAX_STRIKES:
         username_input = input("Username: ")
-        # Allow hardcoded super admin username to pass validation
         if username_input == SUPER_ADMIN["username"]:
             break
         if not isinstance(username_input, str) or username_input == "":

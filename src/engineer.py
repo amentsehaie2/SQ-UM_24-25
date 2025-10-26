@@ -16,7 +16,6 @@ from encryption import encrypt_data, decrypt_data
 from logger import log_activity, print_logs
 from database import get_user_by_username
 
-# Use the same DB path logic as database.py
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SRC_DIR)
 _OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
@@ -94,7 +93,7 @@ def add_service_engineer(current_user):# WERKT VOLLEDIG
         print(f"Failed to add service engineer due to database constraint: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to add service engineer - unexpected error: {username}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -188,7 +187,7 @@ def update_service_engineer_username(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update service engineer username - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -268,7 +267,7 @@ def update_service_engineer_password(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update service engineer password - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -327,7 +326,7 @@ def update_fname_service_engineer(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update service engineer first name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -386,7 +385,7 @@ def update_lname_service_engineer(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update service engineer last name - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -450,7 +449,7 @@ def reset_service_engineer_password(current_user): # WERKT VOLLEDIG
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to reset service engineer password - unexpected error for ID {user_id}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()
 
@@ -612,6 +611,6 @@ def update_own_password_service_engineer(current_user): # CHECK
         print(f"Database error occurred: {str(e)}")
     except Exception as e:
         log_activity(current_user["username"], f"Failed to update service engineer password - unexpected error for ID {current_user['id']}", f"Error: {str(e)}", suspicious=True)
-        print(f"An unexpected error occurred: {str(e)}")
+        print("Invalid input")
     finally:
         conn.close()

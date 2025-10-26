@@ -28,7 +28,6 @@ def log_activity(username, description, additional_info="", suspicious=False):
         "read": False
     }
     
-    # JSON NEEDED FOR ENCRYPTION
     json_log = json.dumps(log_entry)
     encrypted_log_entry = encrypt_data(json_log) + "\n"
 
