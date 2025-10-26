@@ -105,7 +105,7 @@ def read_logs():
     decrypted_logs = []
     for encrypted_log in encrypted_logs:
         try:
-            decrypted_json = decrypt_data(encrypted_log.strip())
+            decrypted_json = decrypt_data(encrypted_log)
             log_entry = json.loads(decrypted_json)
             decrypted_logs.append(log_entry)
         except Exception as e:

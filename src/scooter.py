@@ -129,7 +129,7 @@ def add_scooter(current_user):
         return
 
 def search_scooters(current_user):
-    key = input("Enter search key for scooters: ").strip().lower()
+    key = input("Enter search key for scooters: ").lower()
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -223,7 +223,7 @@ def update_scooter(current_user):
         values = []
 
         for field, (validator, should_encrypt) in allowed_fields.items():
-            value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+            value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ")
             if value:
                 # Convert to correct type for numeric fields
                 if field in {"top_speed", "battery_capacity", "state_of_charge", "target_range", "mileage"}:

@@ -122,7 +122,7 @@ def search_travellers(current_user):
     Search is case-insensitive and matches substrings in:
     traveller_id, first_name, last_name, zip_code, mobile_phone, email, city.
     """
-    key = input("Enter search key for travellers: ").strip().lower()
+    key = input("Enter search key for travellers: ").lower()
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -210,7 +210,7 @@ def update_traveller(current_user):
         values = []
 
         for field, (validator, should_encrypt) in allowed_fields.items():
-            value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ").strip()
+            value = input(f"{field.replace('_', ' ').capitalize()} (leave blank to skip): ")
             if value:
                 if validator(value):
                     processed_value = encrypt_data(value) if should_encrypt else value

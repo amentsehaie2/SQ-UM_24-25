@@ -687,7 +687,7 @@ def update_own_system_admin_profile(current_user):
     # --- Update username ---
     strike_count = 0
     while strike_count < 4:
-        new_username = input("New username (leave empty to skip): ").strip()
+        new_username = input("New username (leave empty to skip): ")
         if new_username == "":
             break
         if not isinstance(new_username, str) or not validate_username(new_username):
@@ -713,7 +713,7 @@ def update_own_system_admin_profile(current_user):
     # --- Update first name ---
     strike_count = 0
     while strike_count < 4:
-        new_fname = input("New first name (leave empty to skip): ").strip()
+        new_fname = input("New first name (leave empty to skip): ")
         if new_fname == "":
             break
         if not isinstance(new_fname, str) or not validate_fname(new_fname):
@@ -731,7 +731,7 @@ def update_own_system_admin_profile(current_user):
     # --- Update last name ---
     strike_count = 0
     while strike_count < 4:
-        new_lname = input("New last name (leave empty to skip): ").strip()
+        new_lname = input("New last name (leave empty to skip): ")
         if new_lname == "":
             break
         if not isinstance(new_lname, str) or not validate_lname(new_lname):
@@ -749,7 +749,7 @@ def update_own_system_admin_profile(current_user):
     # --- Update password ---
     strike_count = 0
     while strike_count < 4:
-        old_password = input("Current password (leave empty to skip): ").strip()
+        old_password = input("Current password (leave empty to skip): ")
         if old_password == "":
             break
         cursor.execute("SELECT password FROM users WHERE id = ?", (user_id,))
@@ -761,7 +761,7 @@ def update_own_system_admin_profile(current_user):
         # Ask for new password
         pw_strike = 0
         while pw_strike < 4:
-            new_password = input("New password: ").strip()
+            new_password = input("New password: ")
             if not isinstance(new_password, str) and not validate_password(new_password):
                 print("Invalid password format.")
                 pw_strike += 1
@@ -800,7 +800,7 @@ def delete_own_system_admin_account(current_user):
 
     strike_count = 0
     while strike_count < 4:
-        password = input("Enter your password to confirm: ").strip()
+        password = input("Enter your password to confirm: ")
         if not isinstance(password, str) or password == "":
             print("Password cannot be empty.")
             strike_count += 1
@@ -819,7 +819,7 @@ def delete_own_system_admin_account(current_user):
 
     strike_count = 0
     while strike_count < 4:
-        confirmation = input("Are you sure you want to delete your account? Type 'yes' to confirm: ").strip().lower()
+        confirmation = input("Are you sure you want to delete your account? Type 'yes' to confirm: ").lower()
         if confirmation == "yes":
             cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
             conn.commit()
