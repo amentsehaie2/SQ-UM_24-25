@@ -358,33 +358,36 @@ def system_administration_menu(current_user):
 
         elif choice == 3:
             if current_user["role"] in ["system_admin", "super_admin"]:
-                strike_count = 0
-                while strike_count < 4:
-                    if current_user["role"] == "super_admin":
-                        backup_name = input("Enter the exact backup file name to restore: ")
-                        if restore_backup_by_name(current_user, backup_name):
-                            log_activity(current_user["username"], "Restore backup (super admin)", f"backup={backup_name}")
-                        else:
-                            print("Restore failed. Please check the backup name and try again.")
-                            log_activity(current_user["username"], "Restore backup failed", f"backup={backup_name}", suspicious=True)
-                    if current_user["role"] == "system_admin":
-                        restore_code = input("Enter your restore-code: ")
-                        ok, backup_name = use_restore_code_db(
-                            encrypt_data(current_user["username"]),
-                            restore_code,
-                            current_user
-                        )
-                        if not ok:
-                            print("Restore-code invalid or not for this user!")
-                            log_activity(current_user["username"], "Restore backup failed", "invalid restore-code", suspicious=True)
-                            strike_count += 1
-                        else:
-                            restore_backup_by_name(current_user, backup_name)
-                            log_activity(current_user["username"], "Restore backup OK", f"backup={backup_name}")
-                            break
-                    if strike_count >= 4:
-                        print("Too many invalid attempts. Returning to menu.")
-                        log_activity(current_user["username"], "Restore backup aborted", "too many invalid attempts", suspicious=True)
+                if current_user["role"] == "super_admin":
+                    backup_name = input("Enter the exact backup file name to restore: ")
+                    if backup_name is None or not isinstance(backup_name, str):
+                        print("Backup name cannot be empty.")
+                        log_activity(current_user["username"], "Restore backup failed", "empty backup name", suspicious=True)
+                        continue
+                    if restore_backup_by_name(current_user, backup_name):
+                        log_activity(current_user["username"], "Restore backup (super admin)", f"backup={backup_name}")
+                        return
+                    else:
+                        print("Restore failed. Please check the backup name and try again.")
+                        log_activity(current_user["username"], "Restore backup failed", f"backup={backup_name}", suspicious=True)
+                elif current_user["role"] == "system_admin":
+                    restore_code = input("Enter your restore-code: ")
+                    if restore_code is None or not isinstance(restore_code, str):
+                        print("Restore-code cannot be empty.")
+                        log_activity(current_user["username"], "Restore backup failed", "empty restore-code", suspicious=True)
+                        continue
+                    ok, backup_name = use_restore_code_db( 
+                        encrypt_data(current_user["username"]),
+                        restore_code,
+                        current_user
+                    )
+                    if not ok:
+                        print("Restore-code invalid or not for this user!")
+                        log_activity(current_user["username"], "Restore backup failed", "invalid restore-code", suspicious=True)
+                    else:
+                        restore_backup_by_name(current_user, backup_name)
+                        log_activity(current_user["username"], "Restore backup OK", f"backup={backup_name}")
+                        return
             else:
                 print("Only an Administrator can restore a backup!")
                 log_activity(current_user["username"], "Permission denied", "restore backup", suspicious=True)

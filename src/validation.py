@@ -131,7 +131,7 @@ def validate_brand(brand) -> bool:
     """
     Validates if the brand is a non-empty string.
     """
-    if isinstance(brand, str):
+    if isinstance(brand, str) and not brand.isdigit():
         return True
     return False
 
