@@ -54,6 +54,11 @@ def add_scooter(current_user):
             print(f"Format: {format_hint}")
         while strikes < 3:
             value = input(prompt_text)
+            if value.strip() == "":
+                print(f"{log_field.replace('_', ' ').capitalize()} cannot be empty. Please try again.")
+                log_activity(username, "add_scooter", f"Empty {log_field}", suspicious=True)
+                strikes += 1
+                continue
             try:
                 if cast_func:
                     value_cast = cast_func(value)
